@@ -47,5 +47,8 @@
 	<true/>
 	<key>NSMotionUsageDescription</key>
 	<string>Get AirPods movement</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>to remind you to maintain good posture</string>
+
 </dict>
 </plist>
