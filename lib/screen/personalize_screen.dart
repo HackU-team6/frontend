@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_airpods/flutter_airpods.dart';
-import 'dart:async';
 
 class PersonalizeScreen extends StatefulWidget {
   const PersonalizeScreen({super.key});
