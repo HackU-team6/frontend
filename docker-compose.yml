@@ -1,0 +1,17 @@
+services:
+  dev: # Flutter 開発用コンテナ
+    platform: linux/amd64
+    build:
+      context: . # ビルドコンテキストをリポジトリ直下に設定
+      dockerfile: .devcontainer/Dockerfile
+    container_name: flutter-dev
+    volumes:
+      - ./:/workspace/frontend # プロジェクト全体をコンテナにマウント
+      - ${HOME}/.pub-cache:/home/vscode/.pub-cache:cached # pub キャッシュを共有
+    ports:
+      - '3000:3000' # 必要に応じてポートを追加
+      - '8080:8080'
+    tty: true
+    # ホスト側のサービスへアクセスしたい場合は以下を有効化
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
