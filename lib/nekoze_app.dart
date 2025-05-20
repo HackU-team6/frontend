@@ -11,7 +11,8 @@ class NekozeApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: '猫背検知アプリ'),
+      home: const HomeScreen(title: '猫背検知アプリ'),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
