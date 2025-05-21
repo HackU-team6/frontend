@@ -13,18 +13,17 @@ class PersonalizeScreen extends StatefulWidget {
 class _PersonalizeScreenState extends State<PersonalizeScreen> {
   // 計測状態を管理する変数
   bool _isCalibrating = false;
-  int _calibrationTimeLeft = 5; // 5秒間の計測
   String _statusMessage = '';
   bool _showSuccess = false;
-
-  // 計測用のタイマー
-  Timer? _calibrationTimer;
+  double _progress = 0.0; // 進捗状況（0.0〜1.0）
 
   // キャリブレーションサービス
   final _calibrationService = CalibrationService();
 
   // キャリブレーションの状態を購読するためのStreamSubscription
   StreamSubscription? _calibrationStatusSubscription;
+  // 進捗状況を更新するためのタイマー
+  Timer? _progressTimer;
 
   @override
   void initState() {
@@ -38,6 +37,22 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
             _isCalibrating = true;
             _statusMessage = '計測中...';
             _showSuccess = false;
+            _progress = 0.0;
+          });
+
+          // 進捗状況を更新するタイマーを開始（0.1秒ごとに更新）
+          _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+            if (_isCalibrating) {
+              setState(() {
+                // 5秒間で進捗を0から1まで増加（0.1秒ごとに0.02ずつ増加）
+                _progress += 0.02;
+                if (_progress >= 1.0) {
+                  _progress = 1.0;
+                }
+              });
+            } else {
+              timer.cancel();
+            }
           });
           break;
         case CalibrationStatus.completed:
@@ -45,7 +60,9 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
             _isCalibrating = false;
             _statusMessage = '計測完了！正しい姿勢の基準値を保存しました。';
             _showSuccess = true;
+            _progress = 1.0;
           });
+          _progressTimer?.cancel();
           break;
         case CalibrationStatus.error:
           setState(() {
@@ -53,6 +70,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
             _statusMessage = 'エラー: データの取得または保存に失敗しました。再試行してください。';
             _showSuccess = false;
           });
+          _progressTimer?.cancel();
           break;
       }
     });
@@ -61,7 +79,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
   @override
   void dispose() {
     // リソースを解放
-    _calibrationTimer?.cancel();
+    _progressTimer?.cancel();
     _calibrationStatusSubscription?.cancel();
     _calibrationService.dispose();
     super.dispose();
@@ -73,23 +91,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
     if (_isCalibrating) return;
 
     setState(() {
-      _calibrationTimeLeft = 5;
-      _statusMessage = '計測中... $_calibrationTimeLeft 秒';
-    });
-
-    // カウントダウンタイマーを開始
-    _calibrationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _calibrationTimeLeft--;
-        if (_isCalibrating) {
-          _statusMessage = '計測中... $_calibrationTimeLeft 秒';
-        }
-      });
-
-      // タイマー終了
-      if (_calibrationTimeLeft <= 0) {
-        timer.cancel();
-      }
+      _statusMessage = '計測中...';
     });
 
     // キャリブレーションを開始
@@ -138,7 +140,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 20),
                   LinearProgressIndicator(
-                    value: (5 - _calibrationTimeLeft) / 5,
+                    value: _progress,
                   ),
                 ],
               ),
