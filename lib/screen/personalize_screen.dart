@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:nekoze_notify/actons/get-gryo.dart';
+import 'package:nekoze_notify/actons/get-gyro.dart';
 import 'package:nekoze_notify/services/calibration_service.dart';
 
 class PersonalizeScreen extends StatefulWidget {
