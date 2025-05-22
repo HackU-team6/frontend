@@ -130,6 +130,7 @@ class CalibrationService {
       // 完了状態に更新
       _updateStatus(CalibrationStatus.completed);
     } catch (e) {
+      print('Error during calibration: $e');
       _updateStatus(CalibrationStatus.error);
     }
   }
