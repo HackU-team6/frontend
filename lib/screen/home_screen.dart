@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_airpods/models/attitude.dart';
+import 'package:flutter_airpods/models/rotation_rate.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:nekoze_notify/actons/get-gyro.dart';
 import 'package:nekoze_notify/main.dart';
 import 'package:nekoze_notify/screen/personalize_screen.dart';
 
@@ -13,6 +16,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
   Future<void> _showPostureNotification() async {
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -65,6 +73,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 _showPostureNotification();
               },
               child: Text('通知を出す'),
+            ),
+            Center(
+              child: StreamBuilder<RotationRate>(
+                stream: AirPodsMotionService.gyroStream(),
+                builder: (
+                  BuildContext context,
+                  AsyncSnapshot<RotationRate> snapshot,
+                ) {
+                  if (snapshot.hasData) {
+                    return Text(
+                      "x: ${snapshot.data!.x},\n y: ${snapshot.data!.y},\n z: ${snapshot.data!.z}",
+                    );
+                  } else {
+                    return const Text("AirPodsが接続されていません。");
+                  }
+                },
+              ),
+            ),
+            Center(
+              child: StreamBuilder<Attitude>(
+                stream: AirPodsMotionService.attitudeStream(),
+                builder: (
+                  BuildContext context,
+                  AsyncSnapshot<Attitude> snapshot,
+                ) {
+                  if (snapshot.hasData) {
+                    return Text(
+                      "pitch: ${snapshot.data!.pitch},\n roll: ${snapshot.data!.roll},\n yaw: ${snapshot.data!.yaw}",
+                    );
+                  } else {
+                    return const Text("AirPodsが接続されていません。");
+                  }
+                },
+              ),
             ),
           ],
         ),
