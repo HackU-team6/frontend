@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_airpods/models/attitude.dart';
 import 'package:flutter_airpods/models/quaternion.dart';
 import 'package:flutter_airpods/models/rotation_rate.dart';
+import 'package:nekoze_notify/models/posture_measurement.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// キャリブレーションの状態を表す列挙型
@@ -168,6 +169,12 @@ class CalibrationService {
   Future<void> _saveCalibrationData(RotationRate gyro, Attitude attitude) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // PostureMeasurementオブジェクトを作成
+    final measurement = PostureMeasurement(
+      gyro: gyro,
+      attitude: attitude,
+    );
+
     // ジャイロデータを保存
     await prefs.setDouble('calibration_gyro_x', gyro.x.toDouble());
     await prefs.setDouble('calibration_gyro_y', gyro.y.toDouble());
@@ -185,16 +192,16 @@ class CalibrationService {
     await prefs.setDouble('calibration_quat_w', attitude.quaternion.w.toDouble());
 
     // 保存日時を記録
-    await prefs.setString('calibration_timestamp', DateTime.now().toString());
+    await prefs.setString('calibration_timestamp', measurement.timestamp.toString());
   }
 
   /// 保存されたキャリブレーションデータを取得
-  Future<Map<String, dynamic>> getCalibrationData() async {
+  Future<PostureMeasurement?> getCalibrationData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // データが存在しない場合は空のマップを返す
+    // データが存在しない場合はnullを返す
     if (!prefs.containsKey('calibration_timestamp')) {
-      return {};
+      return null;
     }
 
     // ジャイロデータを取得
@@ -214,18 +221,20 @@ class CalibrationService {
     final quatW = prefs.getDouble('calibration_quat_w') ?? 0;
 
     // タイムスタンプを取得
-    final timestamp = prefs.getString('calibration_timestamp') ?? '';
+    final timestampStr = prefs.getString('calibration_timestamp') ?? '';
+    final timestamp = DateTime.tryParse(timestampStr);
 
-    return {
-      'gyro': RotationRate(gyroX, gyroY, gyroZ),
-      'attitude': Attitude(
+    // PostureMeasurementオブジェクトを作成して返す
+    return PostureMeasurement(
+      gyro: RotationRate(gyroX, gyroY, gyroZ),
+      attitude: Attitude(
         Quaternion(quatX, quatY, quatZ, quatW),
         pitch,
         roll,
         yaw,
       ),
-      'timestamp': timestamp,
-    };
+      timestamp: timestamp,
+    );
   }
 
   /// キャリブレーションデータが存在するかチェック
