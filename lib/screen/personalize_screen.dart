@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nekoze_notify/actons/get-gyro.dart';
+import 'package:nekoze_notify/models/posture_measurement.dart';
 import 'package:nekoze_notify/services/calibration_service.dart';
 
 class PersonalizeScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
   String _statusMessage = '';
 
   // 保存されたキャリブレーションデータ
-  Map<String, dynamic> _calibrationData = {};
+  PostureMeasurement? _calibrationData;
 
   @override
   void initState() {
@@ -39,8 +40,11 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
           case CalibrationStatus.notStarted:
             _statusMessage = '';
             break;
+          case CalibrationStatus.preparing:
+            _statusMessage = '準備中...正しい姿勢をとってください';
+            break;
           case CalibrationStatus.inProgress:
-            _statusMessage = '計測中...';
+            _statusMessage = '計測中...そのままの姿勢を維持してください';
             break;
           case CalibrationStatus.completed:
             _statusMessage = '計測完了！正しい姿勢が保存されました。';
@@ -86,6 +90,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
       gyroStream: AirPodsMotionService.gyroStream(),
       attitudeStream: AirPodsMotionService.attitudeStream(),
       durationInSeconds: 5,
+      delayInSeconds: 2, // 2秒の準備時間
     );
   }
 
@@ -107,14 +112,14 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'リラックスした“正しい姿勢”で座り、\n「計測開始」を押して 5 秒間キープしてください。',
+              'リラックスした"正しい姿勢"で座り、\n「計測開始」を押してください。\n2秒間の準備時間の後、5秒間の計測が始まります。',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
 
-            // 進行状況インジケーター（計測中のみ表示）
-            if (_status == CalibrationStatus.inProgress)
+            // 進行状況インジケーター（準備中と計測中に表示）
+            if (_status == CalibrationStatus.preparing || _status == CalibrationStatus.inProgress)
               Column(
                 children: [
                   LinearProgressIndicator(value: _progress),
@@ -154,7 +159,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
             const SizedBox(height: 40),
 
             // デバッグ用：保存されたキャリブレーションデータの表示
-            if (_calibrationData.isNotEmpty) ...[
+            if (_calibrationData != null) ...[
               const Divider(),
               const Text(
                 'デバッグ情報：保存されたキャリブレーションデータ',
@@ -163,29 +168,26 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
               const SizedBox(height: 8),
 
               // ジャイロデータ
-              if (_calibrationData['gyro'] != null)
-                Text(
-                  'ジャイロ: X=${_calibrationData['gyro'].x.toStringAsFixed(4)}, '
-                  'Y=${_calibrationData['gyro'].y.toStringAsFixed(4)}, '
-                  'Z=${_calibrationData['gyro'].z.toStringAsFixed(4)}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                'ジャイロ: X=${_calibrationData!.gyro.x.toStringAsFixed(4)}, '
+                'Y=${_calibrationData!.gyro.y.toStringAsFixed(4)}, '
+                'Z=${_calibrationData!.gyro.z.toStringAsFixed(4)}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
 
               // 姿勢データ
-              if (_calibrationData['attitude'] != null)
-                Text(
-                  '姿勢: Roll=${_calibrationData['attitude'].roll.toStringAsFixed(4)}, '
-                  'Pitch=${_calibrationData['attitude'].pitch.toStringAsFixed(4)}, '
-                  'Yaw=${_calibrationData['attitude'].yaw.toStringAsFixed(4)}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                '姿勢: Roll=${_calibrationData!.attitude.roll.toStringAsFixed(4)}, '
+                'Pitch=${_calibrationData!.attitude.pitch.toStringAsFixed(4)}, '
+                'Yaw=${_calibrationData!.attitude.yaw.toStringAsFixed(4)}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
 
               // タイムスタンプ
-              if (_calibrationData['timestamp'] != null)
-                Text(
-                  '計測日時: ${_calibrationData['timestamp']}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                '計測日時: ${_calibrationData!.timestamp}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
             ],
           ],
         ),

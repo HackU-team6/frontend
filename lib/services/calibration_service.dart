@@ -10,6 +10,9 @@ enum CalibrationStatus {
   /// キャリブレーションが開始されていない
   notStarted,
 
+  /// 準備中（待機時間）
+  preparing,
+
   /// キャリブレーション中
   inProgress,
 
@@ -45,39 +48,59 @@ class CalibrationService {
   /// [gyroStream] ジャイロデータのストリーム
   /// [attitudeStream] 姿勢データのストリーム
   /// [durationInSeconds] キャリブレーションの時間（秒）
+  /// [delayInSeconds] 測定開始前の待機時間（秒）
   Future<void> startCalibration({
     required Stream<RotationRate> gyroStream,
     required Stream<Attitude> attitudeStream,
     int durationInSeconds = 5,
+    int delayInSeconds = 2,
   }) async {
     if (_currentStatus == CalibrationStatus.inProgress) {
       return; // 既にキャリブレーション中なら何もしない
     }
 
-    // 状態を更新
-    _updateStatus(CalibrationStatus.inProgress);
+    // 準備中の状態に更新
+    _updateStatus(CalibrationStatus.preparing);
 
     try {
       // 計測用のデータ保存リスト
       final List<RotationRate> gyroData = [];
       final List<Attitude> attitudeData = [];
 
-      // ジャイロデータのサブスクリプション
+      // 待機時間と測定時間の合計を計算
+      final delayTimeInMillis = delayInSeconds * 1000;
+      final measureTimeInMillis = durationInSeconds * 1000;
+      final totalTimeInMillis = delayTimeInMillis + measureTimeInMillis;
+      final updateInterval = 100; // 100ミリ秒ごとに進行状況を更新
+
+      // 進行状況の更新用の変数
+      int elapsedTimeInMillis = 0;
+
+      // 待機時間（この間はデータを収集しない）
+      while (elapsedTimeInMillis < delayTimeInMillis) {
+        await Future.delayed(Duration(milliseconds: updateInterval));
+        elapsedTimeInMillis += updateInterval;
+
+        // 進行状況を更新（0.0〜1.0）
+        final progress = elapsedTimeInMillis / totalTimeInMillis;
+        _progressController.add(progress);
+      }
+
+      // 測定中の状態に更新
+      _updateStatus(CalibrationStatus.inProgress);
+
+      // ジャイロデータのサブスクリプション（待機時間後に開始）
       final gyroSubscription = gyroStream.listen((data) {
         gyroData.add(data);
       });
 
-      // 姿勢データのサブスクリプション
+      // 姿勢データのサブスクリプション（待機時間後に開始）
       final attitudeSubscription = attitudeStream.listen((data) {
         attitudeData.add(data);
       });
 
-      // 進行状況の更新
-      int elapsedTimeInMillis = 0;
-      final totalTimeInMillis = durationInSeconds * 1000;
-      final updateInterval = 100; // 100ミリ秒ごとに進行状況を更新
-
       // 指定された時間だけデータを収集
+      final startMeasureTime = elapsedTimeInMillis;
       while (elapsedTimeInMillis < totalTimeInMillis) {
         await Future.delayed(Duration(milliseconds: updateInterval));
         elapsedTimeInMillis += updateInterval;

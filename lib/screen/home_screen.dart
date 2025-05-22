@@ -4,6 +4,7 @@ import 'package:flutter_airpods/models/rotation_rate.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:nekoze_notify/actons/get-gyro.dart';
 import 'package:nekoze_notify/main.dart';
+import 'package:nekoze_notify/models/posture_measurement.dart';
 import 'package:nekoze_notify/screen/personalize_screen.dart';
 import 'package:nekoze_notify/services/calibration_service.dart';
 
@@ -21,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _calibrationService = CalibrationService();
 
   // 保存されたキャリブレーションデータ
-  Map<String, dynamic> _calibrationData = {};
+  PostureMeasurement? _calibrationData;
 
   @override
   void initState() {
@@ -135,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             // キャリブレーションデータ表示（デバッグ用）
-            if (_calibrationData.isNotEmpty) ...[
+            if (_calibrationData != null) ...[
               const SizedBox(height: 20),
               const Divider(),
               const Text(
@@ -145,29 +146,26 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
 
               // ジャイロデータ
-              if (_calibrationData['gyro'] != null)
-                Text(
-                  'ジャイロ: X=${_calibrationData['gyro'].x.toStringAsFixed(4)}, '
-                  'Y=${_calibrationData['gyro'].y.toStringAsFixed(4)}, '
-                  'Z=${_calibrationData['gyro'].z.toStringAsFixed(4)}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                'ジャイロ: X=${_calibrationData!.gyro.x.toStringAsFixed(4)}, '
+                'Y=${_calibrationData!.gyro.y.toStringAsFixed(4)}, '
+                'Z=${_calibrationData!.gyro.z.toStringAsFixed(4)}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
 
               // 姿勢データ
-              if (_calibrationData['attitude'] != null)
-                Text(
-                  '姿勢: Roll=${_calibrationData['attitude'].roll.toStringAsFixed(4)}, '
-                  'Pitch=${_calibrationData['attitude'].pitch.toStringAsFixed(4)}, '
-                  'Yaw=${_calibrationData['attitude'].yaw.toStringAsFixed(4)}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                '姿勢: Roll=${_calibrationData!.attitude.roll.toStringAsFixed(4)}, '
+                'Pitch=${_calibrationData!.attitude.pitch.toStringAsFixed(4)}, '
+                'Yaw=${_calibrationData!.attitude.yaw.toStringAsFixed(4)}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
 
               // タイムスタンプ
-              if (_calibrationData['timestamp'] != null)
-                Text(
-                  '計測日時: ${_calibrationData['timestamp']}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
+              Text(
+                '計測日時: ${_calibrationData!.timestamp}',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
 
               // 再読み込みボタン
               TextButton(
