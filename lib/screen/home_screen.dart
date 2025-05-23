@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:nekoze_notify/main.dart';
+import 'package:nekoze_notify/screen/analysis_screen.dart';
 import 'package:nekoze_notify/screen/home_screen_content.dart';
 import 'package:nekoze_notify/screen/personalize_screen.dart';
+import 'package:nekoze_notify/screen/report_screen.dart';
+import 'package:nekoze_notify/screen/setting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.title});
@@ -26,9 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         onNotifyPressed: _showPostureNotification,
       ),
-      const Center(child: Text('統計')),
-      const Center(child: Text('レポート')),
-      const PersonalizeScreen(),
+      AnalysisScreen(),
+      ReportScreen(),
+      SettingScreen(),
     ];
   }
 
@@ -59,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: const Color(0xFFB3E9D6),
         title: Text(widget.title),
       ),
       body: _pages[_selectedIndex],
