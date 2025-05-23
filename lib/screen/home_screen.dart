@@ -3,7 +3,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:nekoze_notify/main.dart';
 import 'package:nekoze_notify/screen/analysis_screen.dart';
 import 'package:nekoze_notify/screen/home_screen_content.dart';
-import 'package:nekoze_notify/screen/personalize_screen.dart';
 import 'package:nekoze_notify/screen/report_screen.dart';
 import 'package:nekoze_notify/screen/setting_screen.dart';
 
@@ -23,15 +22,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _pages = <Widget>[
-      HomeScreenContent(
+      HomeScreenContent(),
+      AnalysisScreen(),
+      ReportScreen(),
+      SettingScreen(
         onStartPressed: () {
           // TODO: ユーザーが座り始めたことを通知したので、ジャイロ値を1分おきに取ってくる関数を実装する
         },
         onNotifyPressed: _showPostureNotification,
       ),
-      AnalysisScreen(),
-      ReportScreen(),
-      SettingScreen(),
     ];
   }
 

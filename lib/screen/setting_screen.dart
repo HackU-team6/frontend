@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 class SettingScreen extends StatefulWidget {
-  const SettingScreen({super.key});
+  final VoidCallback onStartPressed;
+  final VoidCallback onNotifyPressed;
+  const SettingScreen({
+    super.key,
+    required this.onStartPressed,
+    required this.onNotifyPressed,
+  });
 
   @override
   State<SettingScreen> createState() => _SettingScreenState();
@@ -18,7 +24,21 @@ class _SettingScreenState extends State<SettingScreen> {
           colors: [Color(0xFFF8FDFA), Color(0xFFE2F6FB)],
         ),
       ),
-      child: Center(child: const Text('設定')),
+      child: Center(
+        child: Column(
+          children: [
+            const Text('設定'),
+            ElevatedButton(
+              onPressed: widget.onStartPressed,
+              child: const Text('作業を開始する'),
+            ),
+            ElevatedButton(
+              onPressed: widget.onNotifyPressed,
+              child: const Text('通知を出す'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
