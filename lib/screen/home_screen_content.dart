@@ -30,10 +30,10 @@ class HomeScreenContent extends StatelessWidget {
                         alignment: Alignment.center,
                         children: [
                           SizedBox(
-                            width: 200,
-                            height: 200,
+                            width: 250,
+                            height: 250,
                             child: CircularProgressIndicator(
-                              value: 0.75,
+                              value: 1,
                               strokeWidth: 12,
                               backgroundColor: Color(0xFFDDF0EF),
                               valueColor: AlwaysStoppedAnimation<Color>(
@@ -41,39 +41,55 @@ class HomeScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: Color(0xFFECA631),
-                            child: Icon(
-                              Icons.person,
-                              size: 32,
-                              color: Colors.white,
-                            ),
+                          Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xFFF48B21),
+                                      Color(0xFFF1603B),
+                                    ],
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 32,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                '姿勢に注意',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '背筋を伸ばしましょう',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF6D6D6D),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
-                      const Text(
-                        '姿勢に注意',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '背筋を伸ばしましょう',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF6D6D6D),
-                        ),
-                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Card(

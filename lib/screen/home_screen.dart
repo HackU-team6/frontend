@@ -51,8 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await flutterLocalNotificationsPlugin.show(
       0,
-      '猫背通知',
-      '猫背になっています！正しい姿勢で作業を心がけましょう！',
+      'Posture Guard',
+      '姿勢が崩れています！背筋を伸ばしましょう！',
       details,
     );
   }
