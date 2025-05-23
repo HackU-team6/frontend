@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:nekoze_notify/main.dart';
+import 'package:nekoze_notify/screen/home_screen_content.dart';
 import 'package:nekoze_notify/screen/personalize_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,6 +14,30 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+  late final List<Widget> _pages;
+
+  void initState() {
+    super.initState();
+    _pages = <Widget>[
+      HomeScreenContent(
+        onStartPressed: () {
+          // TODO: ユーザーが座り始めたことを通知したので、ジャイロ値を1分おきに取ってくる関数を実装する
+        },
+        onNotifyPressed: _showPostureNotification,
+      ),
+      const Center(child: Text('統計')),
+      const Center(child: Text('レポート')),
+      const PersonalizeScreen(),
+    ];
+  }
+
+  void _onNavigationItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   Future<void> _showPostureNotification() async {
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -37,37 +62,22 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                // TODO: ユーザーが座り始めたことを通知したので、ジャイロ値を1分おきに取ってくる関数を実装する
-              },
-              child: const Text('作業を開始する'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PersonalizeScreen(),
-                  ),
-                );
-              },
-              child: const Text(
-                'パーソナライズ画面に移動(デバッグ時のみ)',
-              ), // TODO: 後々、アプリを最初に起動した時にのみ開くように実装
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _showPostureNotification();
-              },
-              child: Text('通知を出す'),
-            ),
-          ],
-        ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color(0xFF12B981),
+        unselectedItemColor: const Color(0xFF8E9CAD),
+        onTap: _onNavigationItemTapped,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.signal_cellular_alt),
+            label: '統計',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'レポート'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
+        ],
       ),
     );
   }
