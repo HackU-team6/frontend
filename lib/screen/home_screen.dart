@@ -1,15 +1,13 @@
+// lib/screens/home_screen.dart
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_airpods/models/attitude.dart';
-import 'package:flutter_airpods/models/rotation_rate.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:nekoze_notify/actons/get-gyro.dart';
-import 'package:nekoze_notify/main.dart';
-import 'package:nekoze_notify/screen/analysis_screen.dart';
-import 'package:nekoze_notify/screen/home_screen_content.dart';
-import 'package:nekoze_notify/screen/report_screen.dart';
-import 'package:nekoze_notify/screen/setting_screen.dart';
-import 'package:nekoze_notify/models/posture_measurement.dart';
-import 'package:nekoze_notify/services/calibration_service.dart';
+import '../services/posture_analyzer.dart';
+import '../services/airpods_motion_service.dart';
+import 'package:flutter_airpods/models/attitude.dart';
+
+final _notifications = FlutterLocalNotificationsPlugin();
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.title});
@@ -21,71 +19,85 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-  late final List<Widget> _pages;
+  final _analyzer = PostureAnalyzer();
+  PostureState? _currentState;
 
+  @override
   void initState() {
     super.initState();
-    _pages = <Widget>[
-      HomeScreenContent(),
-      AnalysisScreen(),
-      ReportScreen(),
-      SettingScreen(
-        onStartPressed: () {
-          // TODO: ユーザーが座り始めたことを通知したので、ジャイロ値を1分おきに取ってくる関数を実装する
-        },
-        onNotifyPressed: _showPostureNotification,
+    _initNotif();
+  }
+
+  Future<void> _initNotif() async {
+    const ios = DarwinInitializationSettings();
+    await _notifications.initialize(const InitializationSettings(iOS: ios));
+  }
+
+  Future<void> _showNotif(String body) async {
+    const details = NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
       ),
-    ];
-  }
-
-  void _onNavigationItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  Future<void> _showPostureNotification() async {
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
     );
-
-    const NotificationDetails details = NotificationDetails(iOS: iosDetails);
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Posture Guard',
-      '姿勢が崩れています！背筋を伸ばしましょう！',
-      details,
-    );
+    await _notifications.show(0, '姿勢アラート', body, details);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFB3E9D6),
-        title: Text(widget.title),
-      ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF12B981),
-        unselectedItemColor: const Color(0xFF8E9CAD),
-        onTap: _onNavigationItemTapped,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.signal_cellular_alt),
-            label: '統計',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.description), label: 'レポート'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
-        ],
+      appBar: AppBar(title: const Text('猫背チェッカー')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // キャリブレーション
+            ElevatedButton(
+              onPressed: () async {
+                await _analyzer.calibrate();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('キャリブレーション完了')),
+                );
+              },
+              child: const Text('正しい姿勢を登録'),
+            ),
+            // 計測開始
+            ElevatedButton(
+              onPressed: () async {
+                await _analyzer.start();
+                _analyzer.state$.listen((s) {
+                  setState(() => _currentState = s);
+                  if (s == PostureState.poor) {
+                    _showNotif('猫背になっています！背筋を伸ばしましょう');
+                  }
+                });
+              },
+              child: const Text('計測開始'),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '現在の姿勢: ${_currentState == null ? '---' : _currentState == PostureState.good ? '良' : '猫背'}',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const Divider(),
+            // モニタ用に pitch 角度を表示
+            StreamBuilder<Attitude>(
+              stream: AirPodsMotionService.attitude$(),
+              builder: (context, snap) {
+                if (!snap.hasData) return const Text('接続待ち…');
+                final deg = snap.data!.pitch * 180 / math.pi;
+                return Text('pitch: ${deg.toStringAsFixed(2)}°');
+              },
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _analyzer.dispose();
+    super.dispose();
   }
 }
