@@ -7,11 +7,11 @@ class NekozeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '猫背検知アプリ',
+      title: 'Posture Guard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const HomeScreen(title: '猫背検知アプリ'),
+      home: const HomeScreen(title: 'Posture Guard'),
       debugShowCheckedModeBanner: false,
     );
   }
