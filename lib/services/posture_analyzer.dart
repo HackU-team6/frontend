@@ -17,11 +17,11 @@ final _notifications = FlutterLocalNotificationsPlugin();
 
 class PostureAnalyzer {
   PostureAnalyzer({
-    this.thresholdDeg = 15, // しきい値（deg）
-    this.avgWindow = const Duration(milliseconds: 500),
-    this.confirmDuration = const Duration(seconds: 1),
-    this.notificationInterval = const Duration(seconds: 10),
-    this.isNotificationEnabled = true,
+    this.thresholdDeg = 15, // 姿勢悪化の閾値（度）
+    this.avgWindow = const Duration(milliseconds: 500), // 移動平均のウィンドウ時間
+    this.confirmDuration = const Duration(seconds: 1), // 姿勢悪化を確定するまでの時間
+    this.notificationInterval = const Duration(seconds: 10), // 通知のクールダウン時間
+    this.isNotificationEnabled = true, // 通知を有効にするか
   }) {
     maxBufferSize =
         (avgWindow.inMilliseconds * 60 / 1000).ceil(); // AirPodsの更新頻度は約60Hz
@@ -43,7 +43,7 @@ class PostureAnalyzer {
   StreamSubscription<Attitude>? _sub;
   final _buffer = <double>[]; // 移動平均バッファ
   DateTime? _poorSince;
-  DateTime? _isNotificationSince; // 通知を行った時刻
+  DateTime? _isNotificationSince; // （前回の）通知を行った時刻
 
   // ───────── 通知初期化 ─────────
   Future<void> _initNotifications() async {
