@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/calibration_storage.dart';
 import 'airpods_motion_service.dart';
 import 'package:flutter_airpods/models/attitude.dart';
@@ -11,16 +12,27 @@ import 'package:flutter_airpods/models/attitude.dart';
 /// 姿勢状態
 enum PostureState { good, poor }
 
+/// 通知
+final _notifications = FlutterLocalNotificationsPlugin();
+
 class PostureAnalyzer {
   PostureAnalyzer({
     this.thresholdDeg = 15, // しきい値（deg）
     this.avgWindow = const Duration(milliseconds: 500),
     this.confirmDuration = const Duration(seconds: 1),
-  });
+    this.notificationInterval = const Duration(seconds: 10),
+    this.isNotificationEnabled = true,
+  }) {
+    maxBufferSize =
+        (avgWindow.inMilliseconds * 60 / 1000).ceil(); // AirPodsの更新頻度は約60Hz
+  }
 
   final double thresholdDeg;
   final Duration avgWindow;
   final Duration confirmDuration;
+  final Duration notificationInterval;
+  final bool isNotificationEnabled;
+  late final int maxBufferSize;
 
   // 内部ストリーム
   final _stateCtl = StreamController<PostureState>.broadcast();
@@ -31,6 +43,39 @@ class PostureAnalyzer {
   StreamSubscription<Attitude>? _sub;
   final _buffer = <double>[]; // 移動平均バッファ
   DateTime? _poorSince;
+  DateTime? _isNotificationSince; // 通知を行った時刻
+
+  // ───────── 通知初期化 ─────────
+  Future<void> _initNotifications() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings(
+      requestSoundPermission: true,
+      requestAlertPermission: true,
+    );
+    await _notifications.initialize(
+      const InitializationSettings(android: android, iOS: ios),
+    );
+  }
+
+  // ───────── 姿勢悪化通知を送る ─────────
+  Future<void> _notifyPoorPosture() async {
+    const androidDetails = AndroidNotificationDetails(
+      'posture_channel', // channelId
+      '姿勢アラート', // channelName
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const detail =
+        NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _notifications.show(
+      0, // 通知ID（同じなら上書き）
+      '姿勢が崩れています',
+      '背筋を伸ばしましょう！',
+      detail,
+    );
+  }
 
   /// キャリブレーションを実行（現在値を基準に）
   Future<void> calibrate() async {
@@ -52,6 +97,8 @@ class PostureAnalyzer {
       final ok = await loadCalibration();
       if (!ok) throw StateError('キャリブレーション未実施');
     }
+
+    await _initNotifications(); // 通知初期化
     _sub ??= AirPodsMotionService.attitude$().listen(_onData);
   }
 
@@ -67,7 +114,10 @@ class PostureAnalyzer {
     // 移動平均用バッファ更新
     final now = DateTime.now();
     _buffer.add(att.pitch.toDouble());
-    _buffer.removeWhere((_) => _buffer.length > 25); // 約0.4–0.5 s分だけ保持
+    if (_buffer.length > maxBufferSize) {
+      _buffer.removeRange(
+          0, _buffer.length - maxBufferSize); // avgWindow時間分だけ保持
+    }
 
     if (_buffer.isEmpty) {
       return; // バッファが空の場合は何もしない
@@ -82,6 +132,16 @@ class PostureAnalyzer {
       _poorSince ??= now;
       if (now.difference(_poorSince!) >= confirmDuration) {
         _emit(PostureState.poor);
+
+        // ★ 通知を送る条件を確認
+        final needNotify = isNotificationEnabled &&
+            (_isNotificationSince == null ||
+                now.difference(_isNotificationSince!) >= notificationInterval);
+
+        if (needNotify) {
+          _isNotificationSince = now; // 次回までクールダウン開始
+          unawaited(_notifyPoorPosture()); // 実際に通知を発火
+        }
       }
     } else {
       _poorSince = null;
