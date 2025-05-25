@@ -17,7 +17,7 @@ final _notifications = FlutterLocalNotificationsPlugin();
 
 class PostureAnalyzer {
   PostureAnalyzer({
-    this.thresholdDeg = 15, // 姿勢悪化の閾値（度）
+    this.thresholdDeg = 8, // 姿勢悪化の閾値（度）
     this.avgWindow = const Duration(milliseconds: 500), // 移動平均のウィンドウ時間
     this.confirmDuration = const Duration(seconds: 1), // 姿勢悪化を確定するまでの時間
     this.notificationInterval = const Duration(seconds: 10), // 通知のクールダウン時間
