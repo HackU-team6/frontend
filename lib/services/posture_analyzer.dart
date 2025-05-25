@@ -34,6 +34,9 @@ class PostureAnalyzer {
   final bool isNotificationEnabled;
   late final int maxBufferSize;
 
+  // キャリブレーション値を取得するゲッター
+  double? get baselinePitch => _baselinePitch;
+
   // 内部ストリーム
   final _stateCtl = StreamController<PostureState>.broadcast();
   Stream<PostureState> get state$ => _stateCtl.stream;
@@ -106,6 +109,15 @@ class PostureAnalyzer {
   Future<void> dispose() async {
     await _sub?.cancel();
     await _stateCtl.close();
+  }
+
+  /// 内部状態をリセットするが、ストリームコントローラーはクローズしない
+  Future<void> reset() async {
+    await _sub?.cancel();
+    _sub = null;
+    _buffer.clear();
+    _poorSince = null;
+    _isNotificationSince = null;
   }
 
   // ──────────────────────────────────────────
