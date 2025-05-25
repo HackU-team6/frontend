@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'debug_screen.dart';
 
 class SettingScreen extends StatefulWidget {
   final VoidCallback onStartPressed;
@@ -26,15 +27,35 @@ class _SettingScreenState extends State<SettingScreen> {
       ),
       child: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('設定'),
+            const Text('設定', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: widget.onStartPressed,
               child: const Text('作業を開始する'),
             ),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: widget.onNotifyPressed,
               child: const Text('通知を出す'),
+            ),
+            const SizedBox(height: 30),
+            const Divider(),
+            const SizedBox(height: 10),
+            const Text('開発者向け', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DebugScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[800],
+              ),
+              child: const Text('デバッグ画面を開く', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
