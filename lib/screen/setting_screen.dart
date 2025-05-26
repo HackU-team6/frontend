@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nekoze_notify/services/posture_analyzer.dart';
 import 'debug_screen.dart';
 
 class SettingScreen extends StatefulWidget {
@@ -20,7 +21,6 @@ class _SettingScreenState extends State<SettingScreen>
   double _notificationDelay = 3;
   double _notificationInterval = 60;
 
-  // --- measurement animation (★追加)
   late final AnimationController _measureController;
   bool _isMeasuring = false;
   bool _measureFinished = false;
@@ -68,9 +68,13 @@ class _SettingScreenState extends State<SettingScreen>
     } else if (_measureFinished) {
       calibrationArea = _MeasurementFinishedCard(
         onReMeasure: _startMeasurement,
+        analyzer: PostureAnalyzer(),
       );
     } else {
-      calibrationArea = _CalibrationCard(onMeasureStart: _startMeasurement);
+      calibrationArea = _CalibrationCard(
+        analyzer: PostureAnalyzer(),
+        onMeasureStart: _startMeasurement,
+      );
     }
 
     return Scaffold(
@@ -152,8 +156,13 @@ class _SettingScreenState extends State<SettingScreen>
 }
 
 class _CalibrationCard extends StatelessWidget {
-  final VoidCallback onMeasureStart; // ★追加
-  const _CalibrationCard({super.key, required this.onMeasureStart});
+  final VoidCallback onMeasureStart;
+  final PostureAnalyzer analyzer;
+  const _CalibrationCard({
+    super.key,
+    required this.onMeasureStart,
+    required this.analyzer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +206,10 @@ class _CalibrationCard extends StatelessWidget {
           _GradientButton(
             text: '測定開始',
             icon: Icons.radio_button_checked,
-            onPressed: onMeasureStart, // ★変更
+            onPressed: () {
+              onMeasureStart();
+              analyzer.calibrate();
+            },
           ),
         ],
       ),
@@ -206,7 +218,7 @@ class _CalibrationCard extends StatelessWidget {
 }
 
 class _MeasuringCard extends StatelessWidget {
-  final double progress; // 0.0 - 1.0
+  final double progress;
   const _MeasuringCard({super.key, required this.progress});
 
   @override
@@ -254,9 +266,6 @@ class _MeasuringCard extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 共通部品
-// ============================================================
 class _GradientButton extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -554,7 +563,12 @@ class _SliderOptionCard extends StatelessWidget {
 
 class _MeasurementFinishedCard extends StatelessWidget {
   final VoidCallback onReMeasure;
-  const _MeasurementFinishedCard({super.key, required this.onReMeasure});
+  final PostureAnalyzer analyzer;
+  const _MeasurementFinishedCard({
+    super.key,
+    required this.onReMeasure,
+    required this.analyzer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -579,7 +593,10 @@ class _MeasurementFinishedCard extends StatelessWidget {
           _GradientButton(
             text: '再測定',
             icon: Icons.replay,
-            onPressed: onReMeasure,
+            onPressed: () {
+              analyzer.calibrate();
+              onReMeasure();
+            },
           ),
         ],
       ),

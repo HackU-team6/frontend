@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/calibration_storage.dart';
 import 'airpods_motion_service.dart';
@@ -69,8 +70,10 @@ class PostureAnalyzer {
       priority: Priority.high,
     );
     const iosDetails = DarwinNotificationDetails();
-    const detail =
-        NotificationDetails(android: androidDetails, iOS: iosDetails);
+    const detail = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
 
     await _notifications.show(
       0, // 通知ID（同じなら上書き）
@@ -82,6 +85,7 @@ class PostureAnalyzer {
 
   /// キャリブレーションを実行（現在値を基準に）
   Future<void> calibrate() async {
+    debugPrint('PostureAnalyzer: calibrate() called');
     _baselinePitch = null; // 初期化
     final current = await AirPodsMotionService.attitude$().first;
     _baselinePitch = current.pitch as double?; // rad
@@ -128,7 +132,9 @@ class PostureAnalyzer {
     _buffer.add(att.pitch.toDouble());
     if (_buffer.length > maxBufferSize) {
       _buffer.removeRange(
-          0, _buffer.length - maxBufferSize); // avgWindow時間分だけ保持
+        0,
+        _buffer.length - maxBufferSize,
+      ); // avgWindow時間分だけ保持
     }
 
     if (_buffer.isEmpty) {
@@ -146,7 +152,8 @@ class PostureAnalyzer {
         _emit(PostureState.poor);
 
         // ★ 通知を送る条件を確認
-        final needNotify = isNotificationEnabled &&
+        final needNotify =
+            isNotificationEnabled &&
             (_isNotificationSince == null ||
                 now.difference(_isNotificationSince!) >= notificationInterval);
 

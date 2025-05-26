@@ -1,4 +1,3 @@
-// lib/screen/home_screen_content.dart
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
