@@ -23,6 +23,7 @@ class _SettingScreenState extends State<SettingScreen>
   // --- measurement animation (★追加)
   late final AnimationController _measureController;
   bool _isMeasuring = false;
+  bool _measureFinished = false;
 
   @override
   void initState() {
@@ -32,7 +33,10 @@ class _SettingScreenState extends State<SettingScreen>
       duration: const Duration(seconds: 3),
     )..addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        setState(() => _isMeasuring = false);
+        setState(() {
+          _isMeasuring = false;
+          _measureFinished = true;
+        });
       }
     });
   }
@@ -44,12 +48,31 @@ class _SettingScreenState extends State<SettingScreen>
   }
 
   void _startMeasurement() {
-    setState(() => _isMeasuring = true);
+    setState(() {
+      _isMeasuring = true;
+      _measureFinished = false;
+    });
     _measureController.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
+    Widget calibrationArea;
+    if (_isMeasuring) {
+      calibrationArea = AnimatedBuilder(
+        animation: _measureController,
+        builder: (context, _) {
+          return _MeasuringCard(progress: _measureController.value);
+        },
+      );
+    } else if (_measureFinished) {
+      calibrationArea = _MeasurementFinishedCard(
+        onReMeasure: _startMeasurement,
+      );
+    } else {
+      calibrationArea = _CalibrationCard(onMeasureStart: _startMeasurement);
+    }
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -73,18 +96,7 @@ class _SettingScreenState extends State<SettingScreen>
                 const SizedBox(height: 8),
                 const Text('あなたの正しい姿勢を記録して基準を設定します'),
                 const SizedBox(height: 32),
-                // ★ 測定カード / キャリブレーションカードの切り替え
-                _isMeasuring
-                    ? AnimatedBuilder(
-                      animation: _measureController,
-                      builder: (context, _) {
-                        return _MeasuringCard(
-                          progress: _measureController.value,
-                        );
-                      },
-                    )
-                    : _CalibrationCard(onMeasureStart: _startMeasurement),
-
+                calibrationArea,
                 const SizedBox(height: 32),
                 _NotificationSettingsSection(
                   enableNotification: _enableNotification,
@@ -533,6 +545,41 @@ class _SliderOptionCard extends StatelessWidget {
             label: '${value.round()}$unit',
             activeColor: const Color(0xFF00B68F),
             onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasurementFinishedCard extends StatelessWidget {
+  final VoidCallback onReMeasure;
+  const _MeasurementFinishedCard({super.key, required this.onReMeasure});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 32),
+      decoration: _cardDecoration,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            size: 80,
+            color: Color(0xFF00B68F),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            '測定が終了しました',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 24),
+          _GradientButton(
+            text: '再測定',
+            icon: Icons.replay,
+            onPressed: onReMeasure,
           ),
         ],
       ),
