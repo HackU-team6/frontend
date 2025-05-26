@@ -1,10 +1,34 @@
 // lib/screen/home_screen_content.dart
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-class HomeScreenContent extends StatelessWidget {
+class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
 
   @override
+  State<HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<HomeScreenContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
@@ -40,75 +64,7 @@ class HomeScreenContent extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              Expanded(
-                flex: 4,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 250,
-                            height: 250,
-                            child: CircularProgressIndicator(
-                              value: 1,
-                              strokeWidth: 12,
-                              backgroundColor: Color(0xFFDDF0EF),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFFECA631),
-                              ),
-                            ),
-                          ),
-                          Column(
-                            children: [
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      Color(0xFFF48B21),
-                                      Color(0xFFF1603B),
-                                    ],
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                '姿勢に注意',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '背筋を伸ばしましょう',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF6D6D6D),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
+              Expanded(flex: 4, child: _PostureComponent()),
               const SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -162,6 +118,116 @@ class HomeScreenContent extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PostureComponent extends StatefulWidget {
+  const _PostureComponent({super.key});
+
+  @override
+  State<_PostureComponent> createState() => _PostureComponentState();
+}
+
+class _PostureComponentState extends State<_PostureComponent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 250,
+                height: 250,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 12,
+                  backgroundColor: Color(0xFFDDF0EF),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFECA631)),
+                ),
+              ),
+              AnimatedBuilder(
+                animation: _rotationController,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _rotationController.value * 2 * math.pi,
+                    child: child,
+                  );
+                },
+                child: SizedBox(
+                  width: 250,
+                  height: 250,
+                  child: CircularProgressIndicator(
+                    value: 0.75,
+                    strokeWidth: 12,
+                    backgroundColor: const Color(0xFFDDF0EF),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFFECA631),
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFFF48B21), Color(0xFFF1603B)],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '姿勢に注意',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '背筋を伸ばしましょう',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF6D6D6D)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
