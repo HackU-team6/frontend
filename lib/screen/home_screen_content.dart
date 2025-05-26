@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:nekoze_notify/services/posture_analyzer.dart';
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
@@ -12,6 +13,8 @@ class HomeScreenContent extends StatefulWidget {
 class _HomeScreenContentState extends State<HomeScreenContent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
+  PostureState _currentState = PostureState.good;
+  late final PostureAnalyzer _analyzer;
 
   @override
   void initState() {
@@ -20,6 +23,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    _analyzer = PostureAnalyzer(
+      thresholdDeg: 8,
+      avgWindow: const Duration(milliseconds: 500),
+      confirmDuration: const Duration(seconds: 1),
+      notificationInterval: const Duration(seconds: 10),
+      isNotificationEnabled: true,
+    );
   }
 
   @override
@@ -28,6 +38,11 @@ class _HomeScreenContentState extends State<HomeScreenContent>
     super.dispose();
   }
 
+  void _showNotif(String msg) {
+    // TODO: 実際の通知ロジックを実装、本当にここで良い？
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
@@ -63,7 +78,13 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              Expanded(flex: 4, child: _PostureBadComponent()),
+              Expanded(
+                flex: 4,
+                child:
+                    _currentState == PostureState.poor
+                        ? _PosturePoorComponent()
+                        : _PostureGoodComponent(),
+              ),
               const SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -100,8 +121,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                   height: 40,
                   width: 110,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: 作業を開始する関数との繋ぎこみ
+                    onPressed: () async {
+                      await _analyzer.start();
+                      _analyzer.state$.listen((s) {
+                        setState(() => _currentState = s);
+                        if (s == PostureState.poor) {
+                          _showNotif('猫背になっています！背筋を伸ばしましょう');
+                        }
+                      });
                     },
                     child: const Text(
                       '作業を開始する',
@@ -122,14 +149,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   }
 }
 
-class _PostureBadComponent extends StatefulWidget {
-  const _PostureBadComponent({super.key});
+class _PosturePoorComponent extends StatefulWidget {
+  const _PosturePoorComponent({super.key});
 
   @override
-  State<_PostureBadComponent> createState() => _PostureBadComponentState();
+  State<_PosturePoorComponent> createState() => _PosturePoorComponentState();
 }
 
-class _PostureBadComponentState extends State<_PostureBadComponent>
+class _PosturePoorComponentState extends State<_PosturePoorComponent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
 
