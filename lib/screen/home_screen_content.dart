@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nekoze_notify/main.dart';
 import 'package:nekoze_notify/provider/notification_settings_provider.dart';
+import 'package:nekoze_notify/provider/posture_analyzer_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 
 class HomeScreenContent extends ConsumerStatefulWidget {
@@ -36,16 +37,8 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
     if (_initialized) return;
     _initialized = true;
 
-    final notificationSettings = ref.read(notificationSettingsProvider);
-
-    _analyzer = PostureAnalyzer(
-      thresholdDeg: 8,
-      confirmDuration: Duration(seconds: notificationSettings.delay.round()),
-      notificationInterval: Duration(
-        seconds: notificationSettings.interval.round(),
-      ),
-      isNotificationEnabled: notificationSettings.enableNotification,
-    );
+    ref.read(notificationSettingsProvider);
+    _analyzer = ref.read(postureAnalyzerProvider);
   }
 
   @override

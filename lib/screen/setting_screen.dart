@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nekoze_notify/provider/notification_settings_provider.dart';
+import 'package:nekoze_notify/provider/posture_analyzer_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 import 'debug_screen.dart';
 
@@ -56,6 +57,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
   @override
   Widget build(BuildContext context) {
     final notificationSettings = ref.watch(notificationSettingsProvider);
+    final analyzer = ref.watch(postureAnalyzerProvider);
     Widget calibrationArea;
     if (_isMeasuring) {
       calibrationArea = AnimatedBuilder(
@@ -67,12 +69,12 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
     } else if (_measureFinished) {
       calibrationArea = _MeasurementFinishedCard(
         onReMeasure: _startMeasurement,
-        analyzer: PostureAnalyzer(),
+        analyzer: analyzer,
       );
     } else {
       calibrationArea = _CalibrationCard(
-        analyzer: PostureAnalyzer(),
         onMeasureStart: _startMeasurement,
+        analyzer: analyzer,
       );
     }
 
