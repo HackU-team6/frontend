@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nekoze_notify/main.dart';
 import 'package:nekoze_notify/provider/notification_settings_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 
@@ -52,8 +54,21 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
     super.dispose();
   }
 
-  void _showNotif(String msg) {
-    // TODO: 実際の通知ロジックを実装、本当にここで良い？
+  Future<void> _showPostureNotification() async {
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails details = NotificationDetails(iOS: iosDetails);
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Posture Guard',
+      '姿勢が崩れています！背筋を伸ばしましょう！',
+      details,
+    );
   }
 
   @override
@@ -141,7 +156,7 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
                       _analyzer.state$.listen((s) {
                         setState(() => _currentState = s);
                         if (s == PostureState.poor) {
-                          _showNotif('猫背になっています！背筋を伸ばしましょう');
+                          _showPostureNotification();
                         }
                       });
                     },
