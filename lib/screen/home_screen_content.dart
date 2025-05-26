@@ -34,13 +34,15 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
     if (_initialized) return;
     _initialized = true;
 
-    final settings = ref.read(notificationSettingsProvider);
+    final notificationSettings = ref.read(notificationSettingsProvider);
 
     _analyzer = PostureAnalyzer(
       thresholdDeg: 8,
-      confirmDuration: const Duration(seconds: 1),
-      notificationInterval: Duration(seconds: settings.interval.round()),
-      isNotificationEnabled: settings.enableNotification,
+      confirmDuration: Duration(seconds: notificationSettings.delay.round()),
+      notificationInterval: Duration(
+        seconds: notificationSettings.interval.round(),
+      ),
+      isNotificationEnabled: notificationSettings.enableNotification,
     );
   }
 
