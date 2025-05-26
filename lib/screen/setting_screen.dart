@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nekoze_notify/provider/notification_settings_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 import 'debug_screen.dart';
 
-class SettingScreen extends StatefulWidget {
+class SettingScreen extends ConsumerStatefulWidget {
   final VoidCallback onStartPressed;
   final VoidCallback onNotifyPressed;
   const SettingScreen({
@@ -12,15 +14,11 @@ class SettingScreen extends StatefulWidget {
   });
 
   @override
-  State<SettingScreen> createState() => _SettingScreenState();
+  ConsumerState<SettingScreen> createState() => _SettingScreenState();
 }
 
-class _SettingScreenState extends State<SettingScreen>
+class _SettingScreenState extends ConsumerState<SettingScreen>
     with SingleTickerProviderStateMixin {
-  bool _enableNotification = true;
-  double _notificationDelay = 3;
-  double _notificationInterval = 60;
-
   late final AnimationController _measureController;
   bool _isMeasuring = false;
   bool _measureFinished = false;
@@ -57,6 +55,7 @@ class _SettingScreenState extends State<SettingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final notificationSettings = ref.watch(notificationSettingsProvider);
     Widget calibrationArea;
     if (_isMeasuring) {
       calibrationArea = AnimatedBuilder(
@@ -103,14 +102,21 @@ class _SettingScreenState extends State<SettingScreen>
                 calibrationArea,
                 const SizedBox(height: 32),
                 _NotificationSettingsSection(
-                  enableNotification: _enableNotification,
-                  notificationDelay: _notificationDelay,
-                  notificationInterval: _notificationInterval,
+                  enableNotification: notificationSettings.enableNotification,
+                  notificationDelay: notificationSettings.delay,
+                  notificationInterval: notificationSettings.interval,
                   onEnableChanged:
-                      (v) => setState(() => _enableNotification = v),
-                  onDelayChanged: (v) => setState(() => _notificationDelay = v),
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setEnable(v),
+                  onDelayChanged:
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setDelay(v),
                   onIntervalChanged:
-                      (v) => setState(() => _notificationInterval = v),
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setInterval(v),
                 ),
                 const SizedBox(height: 32),
                 const Divider(),

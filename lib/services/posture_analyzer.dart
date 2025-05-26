@@ -100,6 +100,7 @@ class PostureAnalyzer {
 
   /// 解析開始
   Future<void> start() async {
+    debugPrint('PostureAnalyzer: start() called');
     if (_baselinePitch == null) {
       final ok = await loadCalibration();
       if (!ok) throw StateError('キャリブレーション未実施');
