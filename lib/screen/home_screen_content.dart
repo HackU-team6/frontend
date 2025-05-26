@@ -140,63 +140,22 @@ class HomeScreenContent extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                '85%',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF12B981),
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text('今日の良姿勢率', style: TextStyle(fontSize: 14)),
-                            ],
-                          ),
-                        ),
+                padding: const EdgeInsets.only(left: 52, right: 52, bottom: 50),
+                child: SizedBox(
+                  height: 40,
+                  width: 110,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // TODO: 作業を開始する関数との繋ぎこみ
+                    },
+                    child: const Text(
+                      '作業を開始する',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0AB3A1),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                '2.5h',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF12B981),
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text('連続作業時間', style: TextStyle(fontSize: 14)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
