@@ -196,7 +196,7 @@ class _CalibrationCard extends StatelessWidget {
           const SizedBox(height: 32),
           _GradientButton(
             text: '測定開始',
-            icon: Icons.radio_button_unchecked,
+            icon: Icons.radio_button_checked,
             onPressed: onMeasureStart, // ★変更
           ),
         ],
