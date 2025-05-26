@@ -20,6 +20,26 @@ class HomeScreenContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
+              Text(
+                "PostureGuard",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0AB3A1),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'AirPods Proで姿勢を見守る',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  color: Color(0xFF6D6D6D),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
               Expanded(
                 flex: 4,
                 child: Center(
