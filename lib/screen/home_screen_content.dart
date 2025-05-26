@@ -1,20 +1,23 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nekoze_notify/provider/notification_settings_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 
-class HomeScreenContent extends StatefulWidget {
+class HomeScreenContent extends ConsumerStatefulWidget {
   const HomeScreenContent({super.key});
 
   @override
-  State<HomeScreenContent> createState() => _HomeScreenContentState();
+  ConsumerState<HomeScreenContent> createState() => _HomeScreenContentState();
 }
 
-class _HomeScreenContentState extends State<HomeScreenContent>
+class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
   PostureState _currentState = PostureState.good;
   late final PostureAnalyzer _analyzer;
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -23,12 +26,21 @@ class _HomeScreenContentState extends State<HomeScreenContent>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final settings = ref.read(notificationSettingsProvider);
+
     _analyzer = PostureAnalyzer(
       thresholdDeg: 8,
-      avgWindow: const Duration(milliseconds: 500),
       confirmDuration: const Duration(seconds: 1),
-      notificationInterval: const Duration(seconds: 10),
-      isNotificationEnabled: true,
+      notificationInterval: Duration(seconds: settings.interval.round()),
+      isNotificationEnabled: settings.enableNotification,
     );
   }
 
@@ -44,6 +56,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
 
   @override
   Widget build(BuildContext context) {
+    // final notificationSettings = ref.watch(notificationSettingsProvider);
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -141,6 +154,16 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 ),
               ),
               const SizedBox(height: 32),
+              // const Text(
+              //   '📡 通知設定デバッグ',
+              //   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              // ),
+              // const SizedBox(height: 8),
+              // Text(
+              //   '通知: ${notificationSettings.enableNotification ? "ON" : "OFF"}',
+              // ),
+              // Text('通知までの遅延: ${notificationSettings.delay.round()} 秒'),
+              // Text('通知間隔: ${notificationSettings.interval.round()} 秒'),
             ],
           ),
         ),
