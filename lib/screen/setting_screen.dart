@@ -14,10 +14,39 @@ class SettingScreen extends StatefulWidget {
   State<SettingScreen> createState() => _SettingScreenState();
 }
 
-class _SettingScreenState extends State<SettingScreen> {
-  bool _notificationEnabled = true;
-  double _delaySeconds = 5;
-  double _intervalSeconds = 180;
+class _SettingScreenState extends State<SettingScreen>
+    with SingleTickerProviderStateMixin {
+  bool _enableNotification = true;
+  double _notificationDelay = 3;
+  double _notificationInterval = 60;
+
+  // --- measurement animation (★追加)
+  late final AnimationController _measureController;
+  bool _isMeasuring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _measureController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _isMeasuring = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _measureController.dispose();
+    super.dispose();
+  }
+
+  void _startMeasurement() {
+    setState(() => _isMeasuring = true);
+    _measureController.forward(from: 0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,21 +73,29 @@ class _SettingScreenState extends State<SettingScreen> {
                 const SizedBox(height: 8),
                 const Text('あなたの正しい姿勢を記録して基準を設定します'),
                 const SizedBox(height: 32),
-                const _CalibrationCard(),
+                // ★ 測定カード / キャリブレーションカードの切り替え
+                _isMeasuring
+                    ? AnimatedBuilder(
+                      animation: _measureController,
+                      builder: (context, _) {
+                        return _MeasuringCard(
+                          progress: _measureController.value,
+                        );
+                      },
+                    )
+                    : _CalibrationCard(onMeasureStart: _startMeasurement),
+
                 const SizedBox(height: 32),
-
                 _NotificationSettingsSection(
-                  notificationEnabled: _notificationEnabled,
-                  delaySeconds: _delaySeconds,
-                  intervalSeconds: _intervalSeconds,
-                  onNotificationEnabledChanged:
-                      (v) => setState(() => _notificationEnabled = v),
-                  onDelaySecondsChanged:
-                      (v) => setState(() => _delaySeconds = v),
-                  onIntervalSecondsChanged:
-                      (v) => setState(() => _intervalSeconds = v),
+                  enableNotification: _enableNotification,
+                  notificationDelay: _notificationDelay,
+                  notificationInterval: _notificationInterval,
+                  onEnableChanged:
+                      (v) => setState(() => _enableNotification = v),
+                  onDelayChanged: (v) => setState(() => _notificationDelay = v),
+                  onIntervalChanged:
+                      (v) => setState(() => _notificationInterval = v),
                 ),
-
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 10),
@@ -103,25 +140,15 @@ class _SettingScreenState extends State<SettingScreen> {
 }
 
 class _CalibrationCard extends StatelessWidget {
-  const _CalibrationCard();
+  final VoidCallback onMeasureStart; // ★追加
+  const _CalibrationCard({super.key, required this.onMeasureStart});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFB5E5D8), width: 1),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -158,9 +185,7 @@ class _CalibrationCard extends StatelessWidget {
           _GradientButton(
             text: '測定開始',
             icon: Icons.radio_button_unchecked,
-            onPressed: () {
-              // TODO: Implement measurement start logic
-            },
+            onPressed: onMeasureStart, // ★変更
           ),
         ],
       ),
@@ -168,6 +193,58 @@ class _CalibrationCard extends StatelessWidget {
   }
 }
 
+class _MeasuringCard extends StatelessWidget {
+  final double progress; // 0.0 - 1.0
+  const _MeasuringCard({super.key, required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (progress * 100).clamp(0, 100).round();
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      decoration: _cardDecoration,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 160,
+            height: 160,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 100,
+                  backgroundColor: const Color(0xFFE5E9EC),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF00B68F)),
+                ),
+                Text(
+                  '$percent%',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            '測定中...背筋を伸ばしたまま動かないでください',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// 共通部品
+// ============================================================
 class _GradientButton extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -223,23 +300,35 @@ class _GradientButton extends StatelessWidget {
   }
 }
 
-class _NotificationSettingsSection extends StatelessWidget {
-  final bool notificationEnabled;
-  final double delaySeconds;
-  final double intervalSeconds;
+final BoxDecoration _cardDecoration = BoxDecoration(
+  borderRadius: BorderRadius.circular(24),
+  border: Border.all(color: const Color(0xFFB5E5D8), width: 1),
+  color: Colors.white,
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black12.withOpacity(0.05),
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ],
+);
 
-  final ValueChanged<bool> onNotificationEnabledChanged;
-  final ValueChanged<double> onDelaySecondsChanged;
-  final ValueChanged<double> onIntervalSecondsChanged;
+class _NotificationSettingsSection extends StatelessWidget {
+  final bool enableNotification;
+  final double notificationDelay;
+  final double notificationInterval;
+  final ValueChanged<bool> onEnableChanged;
+  final ValueChanged<double> onDelayChanged;
+  final ValueChanged<double> onIntervalChanged;
 
   const _NotificationSettingsSection({
     super.key,
-    required this.notificationEnabled,
-    required this.delaySeconds,
-    required this.intervalSeconds,
-    required this.onNotificationEnabledChanged,
-    required this.onDelaySecondsChanged,
-    required this.onIntervalSecondsChanged,
+    required this.enableNotification,
+    required this.notificationDelay,
+    required this.notificationInterval,
+    required this.onEnableChanged,
+    required this.onDelayChanged,
+    required this.onIntervalChanged,
   });
 
   @override
@@ -250,14 +339,14 @@ class _NotificationSettingsSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Row(
-            children: const [
+            children: [
               Icon(
                 Icons.notifications_none_rounded,
-                color: Color(0xFF00B68F),
+                color: const Color(0xFF00B68F),
                 size: 24,
               ),
-              SizedBox(width: 8),
-              Text(
+              const SizedBox(width: 8),
+              const Text(
                 '通知設定',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
@@ -266,34 +355,33 @@ class _NotificationSettingsSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _SwitchOptionCard(
-          title: '通知の有無',
-          subtitle: '猫背を検知した際に通知を表示するか',
-          value: notificationEnabled,
-          onChanged: onNotificationEnabledChanged,
+          title: '通知設定',
+          subtitle: '猫背を検知した際に通知',
+          value: enableNotification,
+          onChanged: onEnableChanged,
         ),
-
-        if (notificationEnabled) ...[
+        if (enableNotification) ...[
           const SizedBox(height: 24),
           _SliderOptionCard(
             title: '通知までの秒数',
-            subtitle: '猫背を検知してから通知を送るまで\nの待機時間',
-            value: delaySeconds,
+            subtitle: '猫背を検知してから通知を送るまでの\n待機時間',
+            value: notificationDelay,
             min: 1,
             max: 30,
             divisions: 29,
             unit: '秒',
-            onChanged: onDelaySecondsChanged,
+            onChanged: onDelayChanged,
           ),
           const SizedBox(height: 24),
           _SliderOptionCard(
             title: '通知間隔',
             subtitle: '通知と次の通知の間に空ける時間',
-            value: intervalSeconds,
-            min: 30,
-            max: 600,
-            divisions: 19,
+            value: notificationInterval,
+            min: 10,
+            max: 300,
+            divisions: 29,
             unit: '秒',
-            onChanged: onIntervalSecondsChanged,
+            onChanged: onIntervalChanged,
           ),
         ],
       ],
