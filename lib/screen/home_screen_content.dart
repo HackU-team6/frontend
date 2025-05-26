@@ -64,7 +64,7 @@ class _HomeScreenContentState extends State<HomeScreenContent>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              Expanded(flex: 4, child: _PostureComponent()),
+              Expanded(flex: 4, child: _PostureBadComponent()),
               const SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -123,14 +123,14 @@ class _HomeScreenContentState extends State<HomeScreenContent>
   }
 }
 
-class _PostureComponent extends StatefulWidget {
-  const _PostureComponent({super.key});
+class _PostureBadComponent extends StatefulWidget {
+  const _PostureBadComponent({super.key});
 
   @override
-  State<_PostureComponent> createState() => _PostureComponentState();
+  State<_PostureBadComponent> createState() => _PostureBadComponentState();
 }
 
-class _PostureComponentState extends State<_PostureComponent>
+class _PostureBadComponentState extends State<_PostureBadComponent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
 
@@ -220,6 +220,116 @@ class _PostureComponentState extends State<_PostureComponent>
                   const SizedBox(height: 4),
                   const Text(
                     '背筋を伸ばしましょう',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF6D6D6D)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostureGoodComponent extends StatefulWidget {
+  const _PostureGoodComponent({super.key});
+
+  @override
+  State<_PostureGoodComponent> createState() => _PostureGoodComponentState();
+}
+
+class _PostureGoodComponentState extends State<_PostureGoodComponent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 250,
+                height: 250,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 12,
+                  backgroundColor: Color(0xFFDDF0EF),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF40CA95)),
+                ),
+              ),
+              AnimatedBuilder(
+                animation: _rotationController,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _rotationController.value * 2 * math.pi,
+                    child: child,
+                  );
+                },
+                child: SizedBox(
+                  width: 250,
+                  height: 250,
+                  child: CircularProgressIndicator(
+                    value: 0.25,
+                    strokeWidth: 12,
+                    backgroundColor: const Color(0xFFDDF0EF),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF40CA95),
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFF13BD85), Color(0xFF2FCE95)],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '良い姿勢です！',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'キープしましょう！',
                     style: TextStyle(fontSize: 14, color: Color(0xFF6D6D6D)),
                   ),
                 ],
