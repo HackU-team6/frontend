@@ -145,7 +145,7 @@ class PostureAnalyzer {
     _listenSensor();
   }
 
-  PostureState? lastEmittedState;
+  PostureState? lastEmittedState = PostureState.good;
   void _listenSensor() {
     // cancel any existing subscription before starting new
     _subscription?.cancel();
