@@ -73,7 +73,7 @@ class PostureAnalyzer {
     const channel = AndroidNotificationChannel(
       'posture_channel',
       '姿勢通知',
-      description: '姿勢が崩れたときの通��チャネル',
+      description: '姿勢が崩れたときの通知チャネル',
       importance: Importance.high,
     );
     await _notifications
