@@ -17,39 +17,49 @@ enum PostureState { good, poor }
 final _notifications = FlutterLocalNotificationsPlugin();
 
 class PostureAnalyzer {
+  final int thresholdDeg;
+  final Duration avgWindow;
+  bool Function() shouldNotify;
+  Duration Function() getConfirmDuration;
+  Duration Function() getNotificationInterval;
+  final _stateController = StreamController<PostureState>.broadcast();
+  Stream<PostureState> get state$ => _stateController.stream;
+
   PostureAnalyzer({
-    this.thresholdDeg = 8, // 姿勢悪化の閾値（度）
-    this.avgWindow = const Duration(milliseconds: 500), // 移動平均のウィンドウ時間
-    this.confirmDuration = const Duration(seconds: 1), // 姿勢悪化を確定するまでの時間
-    this.notificationInterval = const Duration(seconds: 10), // 通知のクールダウン時間
-    this.isNotificationEnabled = true, // 通知を有効にするか
+    required this.thresholdDeg,// 姿勢悪化の閾値（度）
+    required this.avgWindow, // 移動平均のウィンドウ時間
+    required this.getConfirmDuration, // 姿勢悪化を確定するまでの時間
+    required this.getNotificationInterval, // 通知のクールダウン時間
+    required this.shouldNotify, // 通知を有効にするか
   }) {
     maxBufferSize =
         (avgWindow.inMilliseconds * 60 / 1000).ceil(); // AirPodsの更新頻度は約60Hz
   }
 
-  final double thresholdDeg;
-  final Duration avgWindow;
-  final Duration confirmDuration;
-  final Duration notificationInterval;
-  final bool isNotificationEnabled;
+  void updateSettings({
+    required bool Function() shouldNotify,
+    required Duration Function() getConfirmDuration,
+    required Duration Function() getNotificationInterval,
+  }) {
+    this.shouldNotify = shouldNotify;
+    this.getConfirmDuration = getConfirmDuration;
+    this.getNotificationInterval = getNotificationInterval;
+    debugPrint('PostureAnalyzer: settings updated');
+  }
+
   late final int maxBufferSize;
+  late final StreamSubscription<PostureState> _subscription;
 
   // キャリブレーション値を取得するゲッター
   double? get baselinePitch => _baselinePitch;
-
-  // 内部ストリーム
-  final _stateCtl = StreamController<PostureState>.broadcast();
-  Stream<PostureState> get state$ => _stateCtl.stream;
 
   final _storage = CalibrationStorage();
   double? _baselinePitch; // キャリブレーション値
   StreamSubscription<Attitude>? _sub;
   final _buffer = <double>[]; // 移動平均バッファ
-  DateTime? _poorSince;
-  DateTime? _isNotificationSince; // （前回の）通知を行った時刻
+  bool _isCooldown = false;
 
-  // ───────── 通知初期化 ─────────
+  /// 通知初期化 ─────────
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -59,13 +69,32 @@ class PostureAnalyzer {
     await _notifications.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
+    // Androidチャンネルの作成
+    const channel = AndroidNotificationChannel(
+      'posture_channel',
+      '姿勢通知',
+      description: '姿勢が崩れたときの通知チャネル',
+      importance: Importance.high,
+    );
+    await _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   // ───────── 姿勢悪化通知を送る ─────────
   Future<void> _notifyPoorPosture() async {
+    if (!shouldNotify() || _isCooldown) {
+      return; // 通知が無効な場合は何もしない
+    }
+    debugPrint('PostureAnalyzer: cooldown finished, sending notification');
+
+    _isCooldown = true; // クールダウン開始
+
+    // 通知詳細
     const androidDetails = AndroidNotificationDetails(
-      'posture_channel', // channelId
-      '姿勢アラート', // channelName
+      'posture_channel',
+      '姿勢通知',
+      channelDescription: '姿勢が崩れたときの通知チャネル',
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -81,15 +110,22 @@ class PostureAnalyzer {
       '背筋を伸ばしましょう！',
       detail,
     );
+
+    await Future.delayed(getNotificationInterval()); // クールダウン時間待機
+    _isCooldown = false; // クールダウン終了
   }
 
   /// キャリブレーションを実行（現在値を基準に）
   Future<void> calibrate() async {
     debugPrint('PostureAnalyzer: calibrate() called');
+    debugPrint('PostureAnalyzer: waiting for calibration...');
+    await Future.delayed(const Duration(seconds: 2)); // 少し待つ
+    debugPrint('PostureAnalyzer: calibration started');
     _baselinePitch = null; // 初期化
     final current = await AirPodsMotionService.attitude$().first;
     _baselinePitch = current.pitch as double?; // rad
     await _storage.savePitch(_baselinePitch!);
+    debugPrint('PostureAnalyzer: calibration completed with pitch: $_baselinePitch');
   }
 
   /// 保存済みキャリブレーションを読み込み。なければ false。
@@ -101,19 +137,72 @@ class PostureAnalyzer {
   /// 解析開始
   Future<void> start() async {
     debugPrint('PostureAnalyzer: start() called');
-    if (_baselinePitch == null) {
-      final ok = await loadCalibration();
-      if (!ok) throw StateError('キャリブレーション未実施');
+    // 通知プラグインを初期化
+    await _initNotifications();
+    if (_baselinePitch == null && !await loadCalibration()) {
+      throw StateError('キャリブレーション未実施');
     }
-
-    await _initNotifications(); // 通知初期化
-    _sub ??= AirPodsMotionService.attitude$().listen(_onData);
+    _listenSensor();
   }
 
-  /// 解析停止
-  Future<void> dispose() async {
-    await _sub?.cancel();
-    await _stateCtl.close();
+  PostureState? lastEmittedState;
+  void _listenSensor() {
+    final sensorStream = AirPodsMotionService.attitude$().map((attitude) {
+      // 移動平均用バッファ更新
+      _buffer.add(attitude.pitch.toDouble());
+      if (_buffer.length > maxBufferSize) {
+        _buffer.removeRange(
+          0,
+          _buffer.length - maxBufferSize,
+        ); // avgWindow時間分だけ保持
+      }
+
+      if (_buffer.isEmpty) {
+        return PostureState.good; // バッファが空の場合は良い姿勢とみなす
+      }
+      final avgPitch = _buffer.reduce((a, b) => a + b) / _buffer.length;
+
+      final diff = (_baselinePitch! - avgPitch); // 正姿勢より負方向に倒れれば diff > 0
+      final overThreshold = diff > math.pi * thresholdDeg / 180; // rad へ変換
+
+      // 状態遷移判定
+      return overThreshold ? PostureState.poor : PostureState.good;
+    });
+
+    _subscription = sensorStream.listen((state) async {
+      if (state == PostureState.poor){
+        if (lastEmittedState != PostureState.poor) {
+          await Future.delayed(getConfirmDuration());
+          if(lastEmittedState != PostureState.poor) {
+            _stateController.add(PostureState.poor); // 姿勢悪化状態を設定
+            lastEmittedState = PostureState.poor; // 最後の状態を更新
+            debugPrint('PostureAnalyzer: posture is poor now');
+            if (shouldNotify()) {
+              debugPrint('PostureAnalyzer: posture is poor now, notifying');
+              await _notifyPoorPosture(); // 姿勢悪化通知を送る
+            }
+          }
+        } else {
+          if (!_isCooldown && shouldNotify()) {
+            debugPrint(
+                'PostureAnalyzer: posture is still poor, no notification sent');
+            await _notifyPoorPosture(); // 姿勢悪化通知を送る
+          }
+        }
+      } else {
+        if(lastEmittedState == PostureState.poor) {
+          _stateController.add(PostureState.good); // 良い姿勢状態を設定
+          lastEmittedState = PostureState.good; // 最後の状態を更新
+          debugPrint('PostureAnalyzer: posture is good now');
+        }
+      }
+    });
+  }
+
+  void dispose() {
+    debugPrint('PostureAnalyzer: dispose() called');
+    _subscription.cancel();
+    _stateController.close();
   }
 
   /// 内部状態をリセットするが、ストリームコントローラーはクローズしない
@@ -121,57 +210,5 @@ class PostureAnalyzer {
     await _sub?.cancel();
     _sub = null;
     _buffer.clear();
-    _poorSince = null;
-    _isNotificationSince = null;
-  }
-
-  // ──────────────────────────────────────────
-  // センサ値ハンドラ
-  void _onData(Attitude att) {
-    // 移動平均用バッファ更新
-    final now = DateTime.now();
-    _buffer.add(att.pitch.toDouble());
-    if (_buffer.length > maxBufferSize) {
-      _buffer.removeRange(
-        0,
-        _buffer.length - maxBufferSize,
-      ); // avgWindow時間分だけ保持
-    }
-
-    if (_buffer.isEmpty) {
-      return; // バッファが空の場合は何もしない
-    }
-    final avgPitch = _buffer.reduce((a, b) => a + b) / _buffer.length;
-
-    final diff = (_baselinePitch! - avgPitch); // 正姿勢より負方向に倒れれば diff > 0
-    final overThreshold = diff > math.pi * thresholdDeg / 180; // rad へ変換
-
-    // 状態遷移判定
-    if (overThreshold) {
-      _poorSince ??= now;
-      if (now.difference(_poorSince!) >= confirmDuration) {
-        _emit(PostureState.poor);
-
-        // ★ 通知を送る条件を確認
-        final needNotify =
-            isNotificationEnabled &&
-            (_isNotificationSince == null ||
-                now.difference(_isNotificationSince!) >= notificationInterval);
-
-        if (needNotify) {
-          _isNotificationSince = now; // 次回までクールダウン開始
-          unawaited(_notifyPoorPosture()); // 実際に通知を発火
-        }
-      }
-    } else {
-      _poorSince = null;
-      _emit(PostureState.good);
-    }
-  }
-
-  void _emit(PostureState s) {
-    if (!_stateCtl.isClosed && (_stateCtl.hasListener)) {
-      _stateCtl.add(s);
-    }
   }
 }
