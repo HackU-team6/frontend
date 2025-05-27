@@ -209,8 +209,8 @@ class PostureAnalyzer {
 
   /// 内部状態をリセットするが、ストリームコントローラーはクローズしない
   Future<void> reset() async {
-    await _sub?.cancel();
-    _sub = null;
+    await _subscription?.cancel();
+    _subscription = null;
     _buffer.clear();
   }
 }
