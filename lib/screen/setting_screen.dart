@@ -57,7 +57,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
   @override
   Widget build(BuildContext context) {
     final notificationSettings = ref.watch(notificationSettingsProvider);
-    final analyzer = ref.watch(postureAnalyzerProvider);
+    final analyzer = ref.read(postureAnalyzerProvider);
     Widget calibrationArea;
     if (_isMeasuring) {
       calibrationArea = AnimatedBuilder(
@@ -130,12 +130,12 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
                 const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DebugScreen(),
-                      ),
-                    );
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (context) => const DebugScreen(),
+                    //   ),
+                    // );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[800],

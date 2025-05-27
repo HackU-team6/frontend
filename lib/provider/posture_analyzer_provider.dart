@@ -3,12 +3,26 @@ import 'package:nekoze_notify/services/posture_analyzer.dart';
 import 'notification_settings_provider.dart';
 
 final postureAnalyzerProvider = Provider<PostureAnalyzer>((ref) {
-  final settings = ref.watch(notificationSettingsProvider);
 
-  return PostureAnalyzer(
+  final analyzer = PostureAnalyzer(
     thresholdDeg: 8,
-    confirmDuration: Duration(seconds: settings.delay.round()),
-    notificationInterval: Duration(seconds: settings.interval.round()),
-    isNotificationEnabled: settings.enableNotification,
+    avgWindow: const Duration(milliseconds: 500),
+    shouldNotify: () => ref.read(notificationSettingsProvider).enableNotification,
+    getConfirmDuration: () => Duration(seconds: ref.read(notificationSettingsProvider).delay.round()),
+    getNotificationInterval: () => Duration(seconds: ref.read(notificationSettingsProvider).interval.round()),
   );
+
+  analyzer.start();
+  ref.onDispose(() => analyzer.dispose());
+
+  ref.listen<NotificationSettings>(
+    notificationSettingsProvider,
+      (_, next) => analyzer.updateSettings(
+          shouldNotify: () =>  next.enableNotification,
+          getConfirmDuration: () => Duration(seconds: next.delay.round()),
+          getNotificationInterval: () => Duration(seconds: next.interval.round()),
+      ),
+  );
+
+  return analyzer;
 });

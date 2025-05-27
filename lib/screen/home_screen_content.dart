@@ -1,10 +1,7 @@
 import 'dart:math' as math;
-
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nekoze_notify/main.dart';
-import 'package:nekoze_notify/provider/notification_settings_provider.dart';
 import 'package:nekoze_notify/provider/posture_analyzer_provider.dart';
 import 'package:nekoze_notify/services/posture_analyzer.dart';
 
@@ -18,9 +15,8 @@ class HomeScreenContent extends ConsumerStatefulWidget {
 class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
+  StreamSubscription<PostureState>? _postureSub;
   PostureState _currentState = PostureState.good;
-  late final PostureAnalyzer _analyzer;
-  bool _initialized = false;
 
   @override
   void initState() {
@@ -32,36 +28,10 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialized) return;
-    _initialized = true;
-
-    ref.read(notificationSettingsProvider);
-    _analyzer = ref.read(postureAnalyzerProvider);
-  }
-
-  @override
   void dispose() {
+    _postureSub?.cancel();
     _rotationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _showPostureNotification() async {
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const NotificationDetails details = NotificationDetails(iOS: iosDetails);
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Posture Guard',
-      '姿勢が崩れています！背筋を伸ばしましょう！',
-      details,
-    );
   }
 
   @override
@@ -105,8 +75,8 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
                 flex: 4,
                 child:
                     _currentState == PostureState.poor
-                        ? _PosturePoorComponent()
-                        : _PostureGoodComponent(),
+                        ? const _PosturePoorComponent()
+                        : const _PostureGoodComponent(),
               ),
               const SizedBox(height: 30),
               Padding(
@@ -145,12 +115,38 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
                   width: 110,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await _analyzer.start();
-                      _analyzer.state$.listen((s) {
+                      final analyzer = ref.read(postureAnalyzerProvider);
+                      final _baselinePitch = await analyzer.loadCalibration();
+                      if (_baselinePitch == false) {
+                        // キャリブレーション未実施
+                        debugPrint('PostureAnalyzer: キャリブレーション未実施');
+                        return showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: const Text('キャリブレーションが必要です'),
+                              content: const Text(
+                                'AirPods Proを装着し、背筋を伸ばしてから「キャリブレーション」を押してください。',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () async {
+                                    await analyzer.calibrate();
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: const Text('キャリブレーション'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                      debugPrint('PostureAnalyzer: キャリブレーション済み');
+                      await analyzer.start();
+                      _postureSub?.cancel();
+                      _postureSub = analyzer.state$.listen((s) {
+                        if (!mounted) return;
                         setState(() => _currentState = s);
-                        if (s == PostureState.poor) {
-                          _showPostureNotification();
-                        }
                       });
                     },
                     child: const Text(
