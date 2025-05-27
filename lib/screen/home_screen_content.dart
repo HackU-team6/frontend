@@ -154,6 +154,7 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
                       } else {
                         // stop monitoring
                         _postureSub?.cancel();
+                        analyzer.reset();
                         setState(() {
                           _isMonitoring = false;
                           _currentState = PostureState.good;
