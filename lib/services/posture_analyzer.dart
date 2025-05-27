@@ -48,7 +48,7 @@ class PostureAnalyzer {
   }
 
   late final int maxBufferSize;
-  late final StreamSubscription<PostureState> _subscription;
+  StreamSubscription<PostureState>? _subscription;
 
   // キャリブレーション値を取得するゲッター
   double? get baselinePitch => _baselinePitch;
@@ -59,7 +59,7 @@ class PostureAnalyzer {
   final _buffer = <double>[]; // 移動平均バッファ
   bool _isCooldown = false;
 
-  /// 通知初期化 ─────────
+  /// 通知初期 ─────────
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -73,7 +73,7 @@ class PostureAnalyzer {
     const channel = AndroidNotificationChannel(
       'posture_channel',
       '姿勢通知',
-      description: '姿勢が崩れたときの通��チャネル',
+      description: '姿勢が崩れたときの通知チャネル',
       importance: Importance.high,
     );
     await _notifications
@@ -147,6 +147,8 @@ class PostureAnalyzer {
 
   PostureState? lastEmittedState;
   void _listenSensor() {
+    // cancel any existing subscription before starting new
+    _subscription?.cancel();
     final sensorStream = AirPodsMotionService.attitude$().map((attitude) {
       // 移動平均用バッファ更新
       _buffer.add(attitude.pitch.toDouble());
@@ -201,7 +203,7 @@ class PostureAnalyzer {
 
   void dispose() {
     debugPrint('PostureAnalyzer: dispose() called');
-    _subscription.cancel();
+    _subscription?.cancel();
     _stateController.close();
   }
 
