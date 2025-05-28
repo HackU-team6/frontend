@@ -54,7 +54,6 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
           _pitchDifference = _baselinePitch! - _currentPitch;
         }
 
-        //TODO: notificationSettingsProviderから値を取得する
         final settings = ref.read(notificationSettingsProvider);
         _confirmDuration = Duration(
           seconds: settings.delay.round(),
