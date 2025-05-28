@@ -40,14 +40,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
   void _startListening() {
     _attitudeSubscription = AirPodsMotionService.attitude$().listen((attitude) {
-      final monitoringState = ref.read(postureMonitoringProvider);
-
       setState(() {
         _currentPitch = attitude.pitch.toDouble();
-
-        // ベースラインピッチを取得
-        final analyzer = ref.read(postureMonitoringProvider.notifier);
-        // Note: この実装では、PostureAnalyzerのbaselinePitchを公開する必要があります
 
         if (_baselinePitch != null) {
           _pitchDifference = _baselinePitch! - _currentPitch;
