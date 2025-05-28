@@ -15,6 +15,7 @@ dependencies:
   flutter_airpods: ^1.0.5
   shared_preferences: ^2.5.3
   flutter_local_notifications: ^19.2.1
+  flutter_riverpod: ^2.6.1
   flutter_launcher_icons: ^0.14.3
 
 flutter_launcher_icons:
