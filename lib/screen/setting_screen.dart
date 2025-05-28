@@ -386,7 +386,7 @@ class _NotificationSettingsSection extends StatelessWidget {
             subtitle: '通知と次の通知の間に空ける時間',
             value: notificationInterval,
             min: 10,
-            max: 300,
+            max: 600,
             divisions: 29,
             unit: '秒',
             onChanged: onIntervalChanged,
