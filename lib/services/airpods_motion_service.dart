@@ -1,22 +1,88 @@
-// lib/services/airpods_motion_service.dart
-//
-// AirPods のモーションデータを扱うユーティリティ。
-// ──────────────────────────────────────────
+import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_airpods/flutter_airpods.dart';
 import 'package:flutter_airpods/models/device_motion_data.dart';
 import 'package:flutter_airpods/models/attitude.dart';
 import 'package:flutter_airpods/models/rotation_rate.dart';
+import 'package:rxdart/rxdart.dart';
 
+/// AirPodsのモーションデータを扱うサービス
 class AirPodsMotionService {
-  const AirPodsMotionService._(); // インスタンス化禁止
+  const AirPodsMotionService._();
 
-  // asBroadcastStream で複数リスナーを安全に共有
-  static final Stream<DeviceMotionData> _motion$ =
-      FlutterAirpods.getAirPodsDeviceMotionUpdates.asBroadcastStream();
+  // シングルトンストリーム（複数リスナー対応）
+  static final BehaviorSubject<DeviceMotionData?> _motionSubject =
+  BehaviorSubject<DeviceMotionData?>();
 
-  /// 姿勢（ピッチ/ロール/ヨー, クォータニオン）ストリーム
-  static Stream<Attitude> attitude$() => _motion$.map((e) => e.attitude);
+  static StreamSubscription<DeviceMotionData>? _subscription;
+  static bool _isInitialized = false;
 
-  /// ジャイロストリーム
-  static Stream<RotationRate> gyro$() => _motion$.map((e) => e.rotationRate);
+  /// サービスを初期化
+  static void initialize() {
+    if (_isInitialized) return;
+
+    _subscription = FlutterAirpods.getAirPodsDeviceMotionUpdates
+        .handleError((error) {
+      // エラーをログに記録するが、ストリームは継続
+      debugPrint('AirPodsMotionService Error: $error');
+    })
+        .listen(
+          (data) => _motionSubject.add(data),
+      onError: (error) => _motionSubject.addError(error),
+    );
+
+    _isInitialized = true;
+  }
+
+  /// サービスを破棄
+  static void dispose() {
+    _subscription?.cancel();
+    _motionSubject.close();
+    _isInitialized = false;
+  }
+
+  /// AirPodsの接続状態を確認
+  static Future<bool> isConnected() async {
+    try {
+      // タイムアウトを設定して接続確認
+      final data = await motion$()
+          .where((data) => data != null)
+          .timeout(const Duration(seconds: 2))
+          .first;
+      return data != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// デバイスモーションデータのストリーム
+  static Stream<DeviceMotionData?> motion$() {
+    if (!_isInitialized) initialize();
+    return _motionSubject.stream;
+  }
+
+  /// 姿勢（ピッチ/ロール/ヨー, クォータニオン）のストリーム
+  static Stream<Attitude> attitude$() {
+    return motion$()
+        .where((data) => data != null)
+        .map((data) => data!.attitude);
+  }
+
+  /// ジャイロデータのストリーム
+  static Stream<RotationRate> gyro$() {
+    return motion$()
+        .where((data) => data != null)
+        .map((data) => data!.rotationRate);
+  }
+
+  /// 現在の姿勢データを取得（ワンショット）
+  static Future<Attitude?> getCurrentAttitude() async {
+    try {
+      return await attitude$()
+          .timeout(const Duration(seconds: 1))
+          .first;
+    } catch (e) {
+      return null;
+    }
+  }
 }

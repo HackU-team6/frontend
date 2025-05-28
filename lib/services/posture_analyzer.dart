@@ -1,216 +1,244 @@
-// lib/services/posture_analyzer.dart
-//
-// AirPods ピッチ値を用いた姿勢解析クラス。
-// ──────────────────────────────────────────
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
+import 'package:rxdart/rxdart.dart';
+import '../constants/app_constants.dart';
+import '../exceptions/app_exceptions.dart';
 import '../utils/calibration_storage.dart';
 import 'airpods_motion_service.dart';
 import 'package:flutter_airpods/models/attitude.dart';
 
-/// 姿勢状態
 enum PostureState { good, poor }
 
-/// 通知
-final _notifications = FlutterLocalNotificationsPlugin();
-
 class PostureAnalyzer {
+  final CalibrationStorage _storage = CalibrationStorage();
+
+  // Configurable parameters
   final int thresholdDeg;
   final Duration avgWindow;
-  bool Function() shouldNotify;
-  Duration Function() getConfirmDuration;
-  Duration Function() getNotificationInterval;
-  final _stateController = StreamController<PostureState>.broadcast();
+  final Duration Function() getConfirmDuration;
+  final Duration Function() getNotificationInterval;
+
+  // Internal state
+  double? _baselinePitch;
+  final List<double> _pitchBuffer = [];
+  late final int _maxBufferSize;
+
+  // Streams
+  final _stateController = BehaviorSubject<PostureState>.seeded(PostureState.good);
+  final _errorController = StreamController<AppException>.broadcast();
+  StreamSubscription<Attitude>? _attitudeSubscription;
+
+  // Notification state
+  DateTime? _poorPostureStartTime;
+  DateTime? _lastNotificationTime;
+
+  // Throttling
+  final _throttleDuration = Duration(milliseconds: 1000 ~/ AppConstants.sensorSamplingRate);
+  DateTime _lastProcessTime = DateTime.now();
+
   Stream<PostureState> get state$ => _stateController.stream;
+  Stream<AppException> get error$ => _errorController.stream;
+  PostureState get currentState => _stateController.value;
+  double? get baselinePitch => _baselinePitch;
+  bool get isMonitoring => _attitudeSubscription != null;
 
   PostureAnalyzer({
-    required this.thresholdDeg,// 姿勢悪化の閾値（度）
-    required this.avgWindow, // 移動平均のウィンドウ時間
-    required this.getConfirmDuration, // 姿勢悪化を確定するまでの時間
-    required this.getNotificationInterval, // 通知のクールダウン時間
-    required this.shouldNotify, // 通知を有効にするか
+    this.thresholdDeg = AppConstants.postureThresholdDegrees,
+    this.avgWindow = AppConstants.averageWindow,
+    required this.getConfirmDuration,
+    required this.getNotificationInterval,
   }) {
-    maxBufferSize =
-        (avgWindow.inMilliseconds * 60 / 1000).ceil(); // AirPodsの更新頻度は約60Hz
+    _maxBufferSize = (avgWindow.inMilliseconds * AppConstants.airPodsUpdateFrequency / 1000).ceil();
   }
 
-  void updateSettings({
-    required bool Function() shouldNotify,
-    required Duration Function() getConfirmDuration,
-    required Duration Function() getNotificationInterval,
-  }) {
-    this.shouldNotify = shouldNotify;
-    this.getConfirmDuration = getConfirmDuration;
-    this.getNotificationInterval = getNotificationInterval;
-    debugPrint('PostureAnalyzer: settings updated');
-  }
-
-  late final int maxBufferSize;
-  StreamSubscription<PostureState>? _subscription;
-
-  // キャリブレーション値を取得するゲッター
-  double? get baselinePitch => _baselinePitch;
-
-  final _storage = CalibrationStorage();
-  double? _baselinePitch; // キャリブレーション値
-  StreamSubscription<Attitude>? _sub;
-  final _buffer = <double>[]; // 移動平均バッファ
-  bool _isCooldown = false;
-
-  /// 通知初期 ─────────
-  Future<void> _initNotifications() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings(
-      requestSoundPermission: true,
-      requestAlertPermission: true,
-    );
-    await _notifications.initialize(
-      const InitializationSettings(android: android, iOS: ios),
-    );
-    // Androidチャンネルの作成
-    const channel = AndroidNotificationChannel(
-      'posture_channel',
-      '姿勢通知',
-      description: '姿勢が崩れたときの通知チャネル',
-      importance: Importance.high,
-    );
-    await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-  }
-
-  // ───────── 姿勢悪化通知を送る ─────────
-  Future<void> _notifyPoorPosture() async {
-    if (!shouldNotify() || _isCooldown) {
-      return; // 通知が無効な場合は何もしない
+  /// AirPodsの接続状態を確認
+  Future<bool> checkAirPodsConnection() async {
+    try {
+      // タイムアウトを設定して接続チェック
+      final attitude = await AirPodsMotionService.attitude$()
+          .timeout(const Duration(seconds: 2))
+          .first;
+      return attitude != null;
+    } catch (e) {
+      return false;
     }
-    debugPrint('PostureAnalyzer: cooldown finished, sending notification');
-
-    _isCooldown = true; // クールダウン開始
-
-    // 通知詳細
-    const androidDetails = AndroidNotificationDetails(
-      'posture_channel',
-      '姿勢通知',
-      channelDescription: '姿勢が崩れたときの通知チャネル',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const detail = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notifications.show(
-      0, // 通知ID（同じなら上書き）
-      '姿勢が崩れています',
-      '背筋を伸ばしましょう！',
-      detail,
-    );
-
-    await Future.delayed(getNotificationInterval()); // クールダウン時間待機
-    _isCooldown = false; // クールダウン終了
   }
 
-  /// キャリブレーションを実行（現在値を基準に）
+  /// キャリブレーションを実行
   Future<void> calibrate() async {
-    debugPrint('PostureAnalyzer: calibrate() called');
-    debugPrint('PostureAnalyzer: waiting for calibration...');
-    await Future.delayed(const Duration(seconds: 2)); // 少し待つ
-    debugPrint('PostureAnalyzer: calibration started');
-    _baselinePitch = null; // 初期化
-    final current = await AirPodsMotionService.attitude$().first;
-    _baselinePitch = current.pitch as double?; // rad
-    await _storage.savePitch(_baselinePitch!);
-    debugPrint('PostureAnalyzer: calibration completed with pitch: $_baselinePitch');
-  }
+    try {
+      if (!await checkAirPodsConnection()) {
+        throw AirPodsNotConnectedException();
+      }
 
-  /// 保存済みキャリブレーションを読み込み。なければ false。
-  Future<bool> loadCalibration() async {
-    _baselinePitch = await _storage.loadPitch();
-    return _baselinePitch != null;
-  }
+      if (kDebugMode) {
+        print('PostureAnalyzer: Starting calibration...');
+      }
 
-  /// 解析開始
-  Future<void> start() async {
-    debugPrint('PostureAnalyzer: start() called');
-    // 通知プラグインを初期化
-    await _initNotifications();
-    if (_baselinePitch == null && !await loadCalibration()) {
-      throw StateError('キャリブレーション未実施');
+      // ユーザーに準備時間を与える
+      await Future.delayed(const Duration(seconds: 2));
+
+      // 複数サンプルの平均を取る
+      final samples = <double>[];
+      await for (final attitude in AirPodsMotionService.attitude$().take(30)) {
+        samples.add(attitude.pitch.toDouble());
+      }
+
+      if (samples.isEmpty) {
+        throw CalibrationFailedException('センサーデータを取得できませんでした');
+      }
+
+      // 平均値を計算
+      _baselinePitch = samples.reduce((a, b) => a + b) / samples.length;
+
+      // 保存
+      await _storage.savePitch(_baselinePitch!);
+
+      if (kDebugMode) {
+        print('PostureAnalyzer: Calibration completed. Baseline: $_baselinePitch rad');
+      }
+    } catch (e) {
+      _errorController.add(
+          e is AppException ? e : CalibrationFailedException(e.toString())
+      );
+      rethrow;
     }
-    _listenSensor();
   }
 
-  PostureState? lastEmittedState = PostureState.good;
-  void _listenSensor() {
-    // cancel any existing subscription before starting new
-    _subscription?.cancel();
-    final sensorStream = AirPodsMotionService.attitude$().map((attitude) {
-      // 移動平均用バッファ更新
-      _buffer.add(attitude.pitch.toDouble());
-      if (_buffer.length > maxBufferSize) {
-        _buffer.removeRange(
-          0,
-          _buffer.length - maxBufferSize,
-        ); // avgWindow時間分だけ保持
+  /// 保存済みキャリブレーションを読み込み
+  Future<bool> loadCalibration() async {
+    try {
+      _baselinePitch = await _storage.loadPitch();
+      return _baselinePitch != null;
+    } catch (e) {
+      _errorController.add(
+          SensorDataException('キャリブレーションデータの読み込みに失敗しました: $e')
+      );
+      return false;
+    }
+  }
+
+  /// モニタリングを開始
+  Future<void> start() async {
+    try {
+      if (isMonitoring) return;
+
+      if (!await checkAirPodsConnection()) {
+        throw AirPodsNotConnectedException();
       }
 
-      if (_buffer.isEmpty) {
-        return PostureState.good; // バッファが空の場合は良い姿勢とみなす
+      if (_baselinePitch == null && !await loadCalibration()) {
+        throw CalibrationRequiredException();
       }
-      final avgPitch = _buffer.reduce((a, b) => a + b) / _buffer.length;
 
-      final diff = (_baselinePitch! - avgPitch); // 正姿勢より負方向に倒れれば diff > 0
-      final overThreshold = diff > math.pi * thresholdDeg / 180; // rad へ変換
+      _startMonitoring();
+    } catch (e) {
+      _errorController.add(
+          e is AppException ? e : SensorDataException(e.toString())
+      );
+      rethrow;
+    }
+  }
 
-      // 状態遷移判定
-      return overThreshold ? PostureState.poor : PostureState.good;
-    });
+  void _startMonitoring() {
+    _attitudeSubscription?.cancel();
+    _pitchBuffer.clear();
+    _poorPostureStartTime = null;
+    _lastNotificationTime = null;
 
-    _subscription = sensorStream.listen((state) async {
-      if (state == PostureState.poor){
-        if (lastEmittedState != PostureState.poor) {
-          await Future.delayed(getConfirmDuration());
-          if(lastEmittedState != PostureState.poor) {
-            _stateController.add(PostureState.poor); // 姿勢悪化状態を設定
-            lastEmittedState = PostureState.poor; // 最後の状態を更新
-            debugPrint('PostureAnalyzer: posture is poor now');
-            if (shouldNotify()) {
-              debugPrint('PostureAnalyzer: posture is poor now, notifying');
-              await _notifyPoorPosture(); // 姿勢悪化通知を送る
-            }
-          }
+    _attitudeSubscription = AirPodsMotionService.attitude$()
+        .handleError((error) {
+      _errorController.add(SensorDataException('センサーエラー: $error'));
+    })
+        .listen(_processAttitudeData);
+  }
+
+  void _processAttitudeData(Attitude attitude) {
+    final now = DateTime.now();
+
+    // スロットリング：指定されたサンプリングレートで処理
+    if (now.difference(_lastProcessTime) < _throttleDuration) {
+      return;
+    }
+    _lastProcessTime = now;
+
+    // バッファを更新
+    _pitchBuffer.add(attitude.pitch.toDouble());
+    if (_pitchBuffer.length > _maxBufferSize) {
+      _pitchBuffer.removeRange(0, _pitchBuffer.length - _maxBufferSize);
+    }
+
+    if (_pitchBuffer.isEmpty) return;
+
+    // 移動平均を計算
+    final avgPitch = _pitchBuffer.reduce((a, b) => a + b) / _pitchBuffer.length;
+
+    // 姿勢判定
+    final pitchDiff = (_baselinePitch! - avgPitch);
+    final thresholdRad = thresholdDeg * (math.pi / 180);
+    final isPoorPosture = pitchDiff > thresholdRad;
+
+    // 状態更新とイベント発火
+    _updatePostureState(isPoorPosture, now);
+  }
+
+  void _updatePostureState(bool isPoorPosture, DateTime now) {
+    if (isPoorPosture) {
+      // 姿勢悪化の開始時刻を記録
+      _poorPostureStartTime ??= now;
+
+      // 確定時間経過後に状態を更新
+      if (now.difference(_poorPostureStartTime!) >= getConfirmDuration()) {
+        if (currentState != PostureState.poor) {
+          _stateController.add(PostureState.poor);
+          _onPoorPostureDetected(now);
         } else {
-          if (!_isCooldown && shouldNotify()) {
-            debugPrint(
-                'PostureAnalyzer: posture is still poor, no notification sent');
-            await _notifyPoorPosture(); // 姿勢悪化通知を送る
-          }
-        }
-      } else {
-        if(lastEmittedState == PostureState.poor) {
-          _stateController.add(PostureState.good); // 良い姿勢状態を設定
-          lastEmittedState = PostureState.good; // 最後の状態を更新
-          debugPrint('PostureAnalyzer: posture is good now');
+          // 既に姿勢が悪い状態で、通知間隔が経過していれば再通知
+          _checkForRenotification(now);
         }
       }
-    });
+    } else {
+      // 姿勢が改善された
+      _poorPostureStartTime = null;
+      if (currentState != PostureState.good) {
+        _stateController.add(PostureState.good);
+      }
+    }
   }
 
+  void _onPoorPostureDetected(DateTime now) {
+    _lastNotificationTime = now;
+    // 通知イベントを発火（NotificationServiceで処理）
+  }
+
+  void _checkForRenotification(DateTime now) {
+    if (_lastNotificationTime != null &&
+        now.difference(_lastNotificationTime!) >= getNotificationInterval()) {
+      _onPoorPostureDetected(now);
+    }
+  }
+
+  /// モニタリングを停止
+  void stop() {
+    _attitudeSubscription?.cancel();
+    _attitudeSubscription = null;
+    _pitchBuffer.clear();
+    _poorPostureStartTime = null;
+    _lastNotificationTime = null;
+    _stateController.add(PostureState.good);
+  }
+
+  /// リソースを解放
   void dispose() {
-    debugPrint('PostureAnalyzer: dispose() called');
-    _subscription?.cancel();
+    stop();
     _stateController.close();
+    _errorController.close();
   }
 
-  /// 内部状態をリセットするが、ストリームコントローラーはクローズしない
-  Future<void> reset() async {
-    await _subscription?.cancel();
-    _subscription = null;
-    _buffer.clear();
+  /// キャリブレーションをクリア
+  Future<void> clearCalibration() async {
+    _baselinePitch = null;
+    await _storage.clear();
   }
 }
