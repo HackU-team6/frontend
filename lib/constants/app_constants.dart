@@ -6,8 +6,8 @@ class AppConstants {
   static const Duration defaultNotificationInterval = Duration(seconds: 60);
 
   // センサー設定
-  static const int airPodsUpdateFrequency = 60; // Hz
-  static const int sensorSamplingRate = 10; // Hz (実際の処理頻度)
+  static const int airPodsUpdateFrequency = 25; // Hz
+  static const int sensorSamplingRate = 15; // Hz (実際の処理頻度)
 
   // UI設定
   static const Duration calibrationDuration = Duration(seconds: 3);
