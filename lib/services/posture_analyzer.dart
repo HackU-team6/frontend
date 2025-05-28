@@ -18,13 +18,13 @@ final _notifications = FlutterLocalNotificationsPlugin();
 class PostureAnalyzer {
   PostureAnalyzer({
     this.thresholdDeg = 8, // 姿勢悪化の閾値（度）
-    this.avgWindow = const Duration(milliseconds: 500), // 移動平均のウィンドウ時間
-    this.confirmDuration = const Duration(seconds: 1), // 姿勢悪化を確定するまでの時間
+    this.avgWindow = const Duration(milliseconds: 500), // 判定ウィンドウ時間 0.5s
+    this.confirmDuration = const Duration(seconds: 3), // 姿勢悪化を確定するまでの時間
     this.notificationInterval = const Duration(seconds: 10), // 通知のクールダウン時間
     this.isNotificationEnabled = true, // 通知を有効にするか
   }) {
-    maxBufferSize =
-        (avgWindow.inMilliseconds * 60 / 1000).ceil(); // AirPodsの更新頻度は約60Hz
+    // AirPods の更新頻度は約 60 Hz
+    maxBufferSize = (avgWindow.inMilliseconds * 60 / 1000).ceil();
   }
 
   final double thresholdDeg;
@@ -44,7 +44,7 @@ class PostureAnalyzer {
   final _storage = CalibrationStorage();
   double? _baselinePitch; // キャリブレーション値
   StreamSubscription<Attitude>? _sub;
-  final _buffer = <double>[]; // 移動平均バッファ
+  final _buffer = <double>[]; // バッファ（Hampel フィルター用）
   DateTime? _poorSince;
   DateTime? _isNotificationSince; // （前回の）通知を行った時刻
 
@@ -69,8 +69,7 @@ class PostureAnalyzer {
       priority: Priority.high,
     );
     const iosDetails = DarwinNotificationDetails();
-    const detail =
-        NotificationDetails(android: androidDetails, iOS: iosDetails);
+    const detail = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     await _notifications.show(
       0, // 通知ID（同じなら上書き）
@@ -123,20 +122,31 @@ class PostureAnalyzer {
   // ──────────────────────────────────────────
   // センサ値ハンドラ
   void _onData(Attitude att) {
-    // 移動平均用バッファ更新
+    // ① roll, pitch, yaw を取得（double 型に変換）
+    final rawPitch = att.pitch.toDouble();
+    final rawRoll  = att.roll.toDouble();
+    final rawYaw   = att.yaw.toDouble();
+
+    // ② roll が [-10.0, 0.2], yaw が [-1.85, -0.20] の範囲外なら pitch を 0.0 に置き換え
+    final samplePitch = (rawRoll < -0.6 || rawRoll > 0.15 || rawYaw < -1.1 || rawYaw > 0.1)
+        ? 0.0
+        : rawPitch;
+
     final now = DateTime.now();
-    _buffer.add(att.pitch.toDouble());
+
+    // ③ 置き換え後の pitch をバッファに追加
+    _buffer.add(samplePitch);
     if (_buffer.length > maxBufferSize) {
-      _buffer.removeRange(
-          0, _buffer.length - maxBufferSize); // avgWindow時間分だけ保持
+      // avgWindow 時間分だけ保持
+      _buffer.removeRange(0, _buffer.length - maxBufferSize);
     }
 
-    if (_buffer.isEmpty) {
-      return; // バッファが空の場合は何もしない
-    }
-    final avgPitch = _buffer.reduce((a, b) => a + b) / _buffer.length;
+    if (_buffer.isEmpty) return;
 
-    final diff = (_baselinePitch! - avgPitch); // 正姿勢より負方向に倒れれば diff > 0
+    // ★ Hampel フィルターで中央値を取得
+    final smoothedPitch = _hampelSmooth(_buffer);
+
+    final diff = (_baselinePitch! - smoothedPitch); // 正姿勢より負方向に倒れれば diff > 0
     final overThreshold = diff > math.pi * thresholdDeg / 180; // rad へ変換
 
     // 状態遷移判定
@@ -145,14 +155,15 @@ class PostureAnalyzer {
       if (now.difference(_poorSince!) >= confirmDuration) {
         _emit(PostureState.poor);
 
-        // ★ 通知を送る条件を確認
+        // ───── 通知条件判定 ─────
         final needNotify = isNotificationEnabled &&
             (_isNotificationSince == null ||
                 now.difference(_isNotificationSince!) >= notificationInterval);
 
         if (needNotify) {
-          _isNotificationSince = now; // 次回までクールダウン開始
-          unawaited(_notifyPoorPosture()); // 実際に通知を発火
+          _isNotificationSince = now; // クールダウン開始
+          // ignore: discarded_futures
+          _notifyPoorPosture();
         }
       }
     } else {
@@ -161,8 +172,36 @@ class PostureAnalyzer {
     }
   }
 
+  /// Hampel フィルターで外れ値を除去し、**中央値**を返す。
+  ///   1. データの中央値 (median) と MAD を計算
+  ///   2. k × 1.4826 × MAD を超える外れ値を中央値に置換
+  ///   3. フィルタ後データの中央値を返却
+  double _hampelSmooth(List<double> data, {double k = 3.0}) {
+    if (0 == data.length) return 0.0;
+    if (1 == data.length) return data.first;
+
+    // ① 中央値の計算
+    final sorted = List<double>.from(data)..sort();
+    final median = sorted[sorted.length ~/ 2];
+
+    // ② MAD の計算
+    final deviations = data.map((v) => (v - median).abs()).toList();
+    final sortedDev = List<double>.from(deviations)..sort();
+    final mad = sortedDev[sortedDev.length ~/ 2];
+
+    // ③ 外れ値しきい値 (Gaussian 補正 1.4826)
+    final threshold = k * 1.4826 * (mad == 0 ? 1e-6 : mad);
+
+    // ④ 外れ値を中央値に置換
+    final filtered = data.map((v) => (v - median).abs() > threshold ? median : v).toList();
+
+    // ⑤ フィルタ後の中央値を返す
+    final filteredSorted = List<double>.from(filtered)..sort();
+    return filteredSorted[filteredSorted.length ~/ 2];
+  }
+
   void _emit(PostureState s) {
-    if (!_stateCtl.isClosed && (_stateCtl.hasListener)) {
+    if (!_stateCtl.isClosed && _stateCtl.hasListener) {
       _stateCtl.add(s);
     }
   }

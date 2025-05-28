@@ -19,6 +19,8 @@ class _DebugScreenState extends State<DebugScreen> {
 
   PostureState _currentPostureState = PostureState.good;
   double _currentPitch = 0.0;
+  double _currentRoll = 0.0;
+  double _currentYaw = 0.0;
   double? _baselinePitch;
   double _pitchDifference = 0.0;
   bool _isAnalyzing = false;
@@ -95,6 +97,8 @@ class _DebugScreenState extends State<DebugScreen> {
 
         setState(() {
           _currentPitch = attitude.pitch.toDouble();
+          _currentRoll = attitude.roll.toDouble();
+          _currentYaw = attitude.yaw.toDouble();
           _pitchDifference = _baselinePitch != null ? (_baselinePitch! - _currentPitch) : 0.0;
 
           // Simulate the notification logic from PostureAnalyzer
@@ -248,6 +252,10 @@ class _DebugScreenState extends State<DebugScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text('現在のピッチ値: ${_currentPitch.toStringAsFixed(4)} rad'),
+                      const SizedBox(height: 8),
+                      Text('現在のロール値: ${_currentRoll.toStringAsFixed(4)} rad'),
+                      const SizedBox(height: 8),
+                      Text('現在のヨー値: ${_currentYaw.toStringAsFixed(4)} rad'),
                       const SizedBox(height: 8),
                       Text('基準ピッチ値: ${_baselinePitch?.toStringAsFixed(4) ?? "未設定"} rad'),
                       const SizedBox(height: 8),
