@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nekoze_notify/widgets/airpods_status_card.dart';
 import '../provider/posture_monitoring_provider.dart';
 import '../services/posture_analyzer.dart';
 import '../widgets/posture_indicator.dart';
@@ -14,14 +15,14 @@ class HomeScreenContent extends ConsumerWidget {
     final monitoringNotifier = ref.read(postureMonitoringProvider.notifier);
 
     // エラー表示
-    ref.listen<PostureMonitoringState>(
-      postureMonitoringProvider,
-          (previous, next) {
-        if (next.error != null && previous?.error != next.error) {
-          _showErrorSnackBar(context, next.error!);
-        }
-      },
-    );
+    ref.listen<PostureMonitoringState>(postureMonitoringProvider, (
+      previous,
+      next,
+    ) {
+      if (next.error != null && previous?.error != next.error) {
+        _showErrorSnackBar(context, next.error!);
+      }
+    });
 
     return Container(
       decoration: const BoxDecoration(
@@ -39,22 +40,24 @@ class HomeScreenContent extends ConsumerWidget {
             Expanded(
               flex: 4,
               child: PostureIndicator(
-                isGoodPosture: monitoringState.postureState == PostureState.good,
+                isGoodPosture:
+                    monitoringState.postureState == PostureState.good,
                 isMonitoring: monitoringState.isMonitoring,
               ),
             ),
             const SizedBox(height: 30),
-            const _AirPodsStatusCard(),
+            const AirPodsStatusCard(),
             const SizedBox(height: 16),
             _MonitoringButton(
               isMonitoring: monitoringState.isMonitoring,
               isCalibrated: monitoringState.isCalibrated,
-              onPressed: () => _handleMonitoringButton(
-                context,
-                ref,
-                monitoringState,
-                monitoringNotifier,
-              ),
+              onPressed:
+                  () => _handleMonitoringButton(
+                    context,
+                    ref,
+                    monitoringState,
+                    monitoringNotifier,
+                  ),
             ),
             const SizedBox(height: 32),
           ],
@@ -64,11 +67,11 @@ class HomeScreenContent extends ConsumerWidget {
   }
 
   static Future<void> _handleMonitoringButton(
-      BuildContext context,
-      WidgetRef ref,
-      PostureMonitoringState state,
-      PostureMonitoringNotifier notifier,
-      ) async {
+    BuildContext context,
+    WidgetRef ref,
+    PostureMonitoringState state,
+    PostureMonitoringNotifier notifier,
+  ) async {
     if (state.isMonitoring) {
       // 停止
       notifier.stopMonitoring();
@@ -91,22 +94,23 @@ class HomeScreenContent extends ConsumerWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('キャリブレーションが必要です'),
-        content: const Text(
-          'AirPods Proを装着し、背筋を伸ばした状態で「キャリブレーション」を押してください。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('キャリブレーションが必要です'),
+            content: const Text(
+              'AirPods Proを装着し、背筋を伸ばした状態で「キャリブレーション」を押してください。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('キャリブレーション'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('キャリブレーション'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -174,42 +178,6 @@ class _HeaderSection extends StatelessWidget {
   }
 }
 
-class _AirPodsStatusCard extends StatelessWidget {
-  const _AirPodsStatusCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 2,
-        child: ListTile(
-          leading: const Icon(
-            Icons.headset,
-            color: Color(0xFF12B981),
-          ),
-          title: const Text(
-            'AirPods Pro',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: const Text('接続済み'),
-          trailing: Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: Color(0xFF12B981),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _MonitoringButton extends StatelessWidget {
   final bool isMonitoring;
   final bool isCalibrated;
@@ -230,9 +198,8 @@ class _MonitoringButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: isMonitoring
-                ? Colors.red.shade400
-                : const Color(0xFF0AB3A1),
+            backgroundColor:
+                isMonitoring ? Colors.red.shade400 : const Color(0xFF0AB3A1),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
