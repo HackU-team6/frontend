@@ -1,34 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:nekoze_notify/main.dart';
-import 'package:nekoze_notify/screen/home_screen_content.dart';
-import 'package:nekoze_notify/screen/setting_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'home_screen_content.dart';
+import 'setting_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.title});
-
+class HomeScreen extends ConsumerStatefulWidget {
   final String title;
 
+  const HomeScreen({
+    super.key,
+    required this.title,
+  });
+
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
-  late final List<Widget> _pages;
 
-  void initState() {
-    super.initState();
-    _pages = <Widget>[
-      HomeScreenContent(),
-      SettingScreen(
-        onStartPressed: () {
-          // TODO: ユーザーが座り始めたことを通知したので、ジャイロ値を1分おきに取ってくる関数を実装する
-        },
-        onNotifyPressed: _showPostureNotification,
-      ),
-    ];
-  }
+  final List<Widget> _pages = const [
+    HomeScreenContent(),
+    SettingScreen(),
+  ];
 
   void _onNavigationItemTapped(int index) {
     setState(() {
@@ -36,27 +29,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _showPostureNotification() async {
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const NotificationDetails details = NotificationDetails(iOS: iosDetails);
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Posture Guard',
-      '姿勢が崩れています！背筋を伸ばしましょう！',
-      details,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -64,8 +43,14 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: const Color(0xFF8E9CAD),
         onTap: _onNavigationItemTapped,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'ホーム',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: '設定',
+          ),
         ],
       ),
     );
