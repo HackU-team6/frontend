@@ -59,6 +59,8 @@ class PostureMonitoringNotifier extends StateNotifier<PostureMonitoringState> {
     _init();
   }
 
+  double? get baselinePitch => _analyzer.baselinePitch;
+
   Future<void> _init() async {
     // 通知サービスの初期化
     try {
