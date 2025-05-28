@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_airpods/models/attitude.dart';
+import 'package:nekoze_notify/provider/notification_settings_provider.dart';
 import '../provider/posture_monitoring_provider.dart';
 import '../services/airpods_motion_service.dart';
 import '../services/posture_analyzer.dart';
@@ -23,6 +24,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   double _pitchDifference = 0.0;
   DateTime? _poorPostureSince;
   DateTime? _lastNotificationTime;
+  Duration _confirmDuration = AppConstants.defaultConfirmDuration;
+  Duration _interval = AppConstants.defaultNotificationInterval;
 
   final List<String> _eventLog = [];
 
@@ -43,9 +46,22 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       setState(() {
         _currentPitch = attitude.pitch.toDouble();
 
+        // ベースラインピッチを取得
+        final analyzer = ref.read(postureMonitoringProvider.notifier);
+        _baselinePitch = analyzer.baselinePitch;
+
         if (_baselinePitch != null) {
           _pitchDifference = _baselinePitch! - _currentPitch;
         }
+
+        //TODO: notificationSettingsProviderから値を取得する
+        final settings = ref.read(notificationSettingsProvider);
+        _confirmDuration = Duration(
+          seconds: settings.delay.round(),
+        );
+        _interval = Duration(
+          seconds: settings.interval.round(),
+        );
       });
     });
   }
@@ -112,6 +128,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 pitchDifference: _pitchDifference,
                 poorPostureSince: _poorPostureSince,
                 lastNotificationTime: _lastNotificationTime,
+                confirmDuration: _confirmDuration,
+                interval: _interval,
               ),
 
               const SizedBox(height: 20),
@@ -181,6 +199,8 @@ class _StatusCard extends StatelessWidget {
   final double pitchDifference;
   final DateTime? poorPostureSince;
   final DateTime? lastNotificationTime;
+  final Duration confirmDuration;
+  final Duration interval;
 
   const _StatusCard({
     required this.monitoringState,
@@ -189,6 +209,8 @@ class _StatusCard extends StatelessWidget {
     required this.pitchDifference,
     required this.poorPostureSince,
     required this.lastNotificationTime,
+    required this.confirmDuration,
+    required this.interval,
   });
 
   @override
@@ -240,12 +262,12 @@ class _StatusCard extends StatelessWidget {
             const SizedBox(height: 8),
             _StatusRow(
               label: '確定時間',
-              value: '${AppConstants.defaultConfirmDuration.inSeconds}秒',
+              value: '$confirmDuration秒',
             ),
             const SizedBox(height: 4),
             _StatusRow(
               label: '通知間隔',
-              value: '${AppConstants.defaultNotificationInterval.inSeconds}秒',
+              value: '$interval秒',
             ),
             if (poorPostureSince != null) ...[
               const SizedBox(height: 8),
