@@ -17,6 +17,7 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
   late final AnimationController _rotationController;
   StreamSubscription<PostureState>? _postureSub;
   PostureState _currentState = PostureState.good;
+  bool _isMonitoring = false;
 
   @override
   void initState() {
@@ -73,10 +74,11 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
               const SizedBox(height: 20),
               Expanded(
                 flex: 4,
-                child:
-                    _currentState == PostureState.poor
+                child: !_isMonitoring
+                    ? const _IdleComponent()
+                    : (_currentState == PostureState.poor
                         ? const _PosturePoorComponent()
-                        : const _PostureGoodComponent(),
+                        : const _PostureGoodComponent()),
               ),
               const SizedBox(height: 30),
               Padding(
@@ -116,42 +118,54 @@ class _HomeScreenContentState extends ConsumerState<HomeScreenContent>
                   child: ElevatedButton(
                     onPressed: () async {
                       final analyzer = ref.read(postureAnalyzerProvider);
-                      final _baselinePitch = await analyzer.loadCalibration();
-                      if (_baselinePitch == false) {
-                        // キャリブレーション未実施
-                        debugPrint('PostureAnalyzer: キャリブレーション未実施');
-                        return showDialog(
-                          context: context,
-                          builder: (context) {
-                            return AlertDialog(
-                              title: const Text('キャリブレーションが必要です'),
-                              content: const Text(
-                                'AirPods Proを装着し、背筋を伸ばしてから「キャリブレーション」を押してください。',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () async {
-                                    await analyzer.calibrate();
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: const Text('キャリブレーション'),
+                      if (!_isMonitoring) {
+                        // start monitoring
+                        final calibrated = await analyzer.loadCalibration();
+                        if (!calibrated) {
+                          debugPrint('PostureAnalyzer: キャリブレーション未実施');
+                          return showDialog(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: const Text('キャリブレーションが必要です'),
+                                content: const Text(
+                                  'AirPods Proを装着し、背筋を伸ばしてから「キャリブレーション」を押してください。',
                                 ),
-                              ],
-                            );
-                          },
-                        );
+                                actions: [
+                                  TextButton(
+                                    onPressed: () async {
+                                      await analyzer.calibrate();
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text('キャリブレーション'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        }
+                        debugPrint('PostureAnalyzer: キャリブレーション済み');
+                        await analyzer.start();
+                        _postureSub?.cancel();
+                        _postureSub = analyzer.state$.listen((s) {
+                          if (!mounted) return;
+                          setState(() => _currentState = s);
+                        });
+                      } else {
+                        // stop monitoring
+                        _postureSub?.cancel();
+                        analyzer.reset();
+                        setState(() {
+                          _isMonitoring = false;
+                          _currentState = PostureState.good;
+                        });
+                        return;
                       }
-                      debugPrint('PostureAnalyzer: キャリブレーション済み');
-                      await analyzer.start();
-                      _postureSub?.cancel();
-                      _postureSub = analyzer.state$.listen((s) {
-                        if (!mounted) return;
-                        setState(() => _currentState = s);
-                      });
+                      setState(() => _isMonitoring = true);
                     },
-                    child: const Text(
-                      '作業を開始する',
-                      style: TextStyle(
+                    child: Text(
+                      _isMonitoring ? '作業停止' : '作業を開始する',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0AB3A1),
                       ),
@@ -397,3 +411,21 @@ class _PostureGoodComponentState extends State<_PostureGoodComponent>
     );
   }
 }
+
+class _IdleComponent extends StatelessWidget {
+  const _IdleComponent({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.watch_later_outlined, size: 100, color: Color(0xFF6D6D6D)),
+          SizedBox(height: 8),
+          Text('待機中', style: TextStyle(fontSize: 20, color: Color(0xFF6D6D6D))),
+        ],
+      ),
+    );
+  }
+}
+

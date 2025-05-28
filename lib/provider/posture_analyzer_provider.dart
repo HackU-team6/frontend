@@ -12,7 +12,7 @@ final postureAnalyzerProvider = Provider<PostureAnalyzer>((ref) {
     getNotificationInterval: () => Duration(seconds: ref.read(notificationSettingsProvider).interval.round()),
   );
 
-  analyzer.start();
+  // Defer the start of the analyzer to a user-driven action.
   ref.onDispose(() => analyzer.dispose());
 
   ref.listen<NotificationSettings>(

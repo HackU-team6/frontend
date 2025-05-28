@@ -48,7 +48,7 @@ class PostureAnalyzer {
   }
 
   late final int maxBufferSize;
-  late final StreamSubscription<PostureState> _subscription;
+  StreamSubscription<PostureState>? _subscription;
 
   // キャリブレーション値を取得するゲッター
   double? get baselinePitch => _baselinePitch;
@@ -59,7 +59,7 @@ class PostureAnalyzer {
   final _buffer = <double>[]; // 移動平均バッファ
   bool _isCooldown = false;
 
-  /// 通知初期化 ─────────
+  /// 通知初期 ─────────
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -145,8 +145,10 @@ class PostureAnalyzer {
     _listenSensor();
   }
 
-  PostureState? lastEmittedState;
+  PostureState? lastEmittedState = PostureState.good;
   void _listenSensor() {
+    // cancel any existing subscription before starting new
+    _subscription?.cancel();
     final sensorStream = AirPodsMotionService.attitude$().map((attitude) {
       // 移動平均用バッファ更新
       _buffer.add(attitude.pitch.toDouble());
@@ -201,14 +203,14 @@ class PostureAnalyzer {
 
   void dispose() {
     debugPrint('PostureAnalyzer: dispose() called');
-    _subscription.cancel();
+    _subscription?.cancel();
     _stateController.close();
   }
 
   /// 内部状態をリセットするが、ストリームコントローラーはクローズしない
   Future<void> reset() async {
-    await _sub?.cancel();
-    _sub = null;
+    await _subscription?.cancel();
+    _subscription = null;
     _buffer.clear();
   }
 }
