@@ -19,4 +19,7 @@ class AppConstants {
   static const String notificationChannelDescription = '姿勢が崩れたときの通知チャネル';
   static const String notificationTitle = '姿勢が崩れています';
   static const String notificationBody = '背筋を伸ばしましょう！';
+
+  // 接続確認設定
+  static const Duration airPodsConnectionCheckInterval = Duration(seconds: 5); // 秒
 }
