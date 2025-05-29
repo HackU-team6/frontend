@@ -9,14 +9,18 @@ class AirPodsStatusCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final connection = ref.watch(airPodsConnectionProvider);
 
-    return connection.when(
-      loading: () => _buildCard('接続確認中…', Colors.grey),
-      error: (_, __) => _buildCard('未接続', Colors.redAccent),
-      data:
-          (isConnected) => _buildCard(
-            isConnected ? '接続済み' : '未接続',
-            isConnected ? const Color(0xFF12B981) : Colors.redAccent,
-          ),
+    return Column(
+      children: [
+        const SizedBox(height: 16.0),
+        _buildCard(
+          connection.isChecking
+              ? '接続状態を確認中...'
+              : connection.isConnected
+                  ? '接続済み'
+                  : '未接続',
+          connection.isConnected ? Colors.green : Colors.red,
+        ),
+      ],
     );
   }
 
