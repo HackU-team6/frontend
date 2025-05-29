@@ -62,19 +62,19 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
     final monitoringState = ref.watch(postureMonitoringProvider);
 
     // エラー表示
-    ref.listen<PostureMonitoringState>(
-      postureMonitoringProvider,
-          (previous, next) {
-        if (next.error != null && previous?.error != next.error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.error!.message),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      },
-    );
+    ref.listen<PostureMonitoringState>(postureMonitoringProvider, (
+      previous,
+      next,
+    ) {
+      if (next.error != null && previous?.error != next.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error!.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
 
     Widget calibrationArea;
     if (_isMeasuring) {
@@ -89,9 +89,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
         onReMeasure: _startMeasurement,
       );
     } else {
-      calibrationArea = _CalibrationCard(
-        onMeasureStart: _startMeasurement,
-      );
+      calibrationArea = _CalibrationCard(onMeasureStart: _startMeasurement);
     }
 
     return Scaffold(
@@ -126,15 +124,18 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
                   enableNotification: notificationSettings.enableNotification,
                   notificationDelay: notificationSettings.delay,
                   notificationInterval: notificationSettings.interval,
-                  onEnableChanged: (v) => ref
-                      .read(notificationSettingsProvider.notifier)
-                      .setEnable(v),
-                  onDelayChanged: (v) => ref
-                      .read(notificationSettingsProvider.notifier)
-                      .setDelay(v),
-                  onIntervalChanged: (v) => ref
-                      .read(notificationSettingsProvider.notifier)
-                      .setInterval(v),
+                  onEnableChanged:
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setEnable(v),
+                  onDelayChanged:
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setDelay(v),
+                  onIntervalChanged:
+                      (v) => ref
+                          .read(notificationSettingsProvider.notifier)
+                          .setInterval(v),
                 ),
 
                 const SizedBox(height: 32),
@@ -178,9 +179,7 @@ class _SettingScreenState extends ConsumerState<SettingScreen>
 class _CalibrationCard extends StatelessWidget {
   final VoidCallback onMeasureStart;
 
-  const _CalibrationCard({
-    required this.onMeasureStart,
-  });
+  const _CalibrationCard({required this.onMeasureStart});
 
   @override
   Widget build(BuildContext context) {
@@ -285,9 +284,7 @@ class _MeasuringCard extends StatelessWidget {
 class _MeasurementFinishedCard extends StatelessWidget {
   final VoidCallback onReMeasure;
 
-  const _MeasurementFinishedCard({
-    required this.onReMeasure,
-  });
+  const _MeasurementFinishedCard({required this.onReMeasure});
 
   @override
   Widget build(BuildContext context) {
@@ -370,16 +367,16 @@ class _NotificationSettingsSection extends StatelessWidget {
 
         if (enableNotification) ...[
           const SizedBox(height: 24),
-          SliderOptionCard(
-            title: '通知までの秒数',
-            subtitle: '猫背を検知してから通知を送るまでの\n待機時間',
-            value: notificationDelay,
-            min: 1,
-            max: 30,
-            divisions: 29,
-            unit: '秒',
-            onChanged: onDelayChanged,
-          ),
+          // SliderOptionCard(
+          //   title: '通知までの秒数',
+          //   subtitle: '猫背を検知してから通知を送るまでの\n待機時間',
+          //   value: notificationDelay,
+          //   min: 1,
+          //   max: 30,
+          //   divisions: 29,
+          //   unit: '秒',
+          //   onChanged: onDelayChanged,
+          // ),
           const SizedBox(height: 24),
           SliderOptionCard(
             title: '通知間隔',
@@ -387,7 +384,7 @@ class _NotificationSettingsSection extends StatelessWidget {
             value: notificationInterval,
             min: 10,
             max: 600,
-            divisions: 29,
+            divisions: 59,
             unit: '秒',
             onChanged: onIntervalChanged,
           ),
