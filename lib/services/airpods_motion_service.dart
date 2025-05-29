@@ -16,6 +16,7 @@ class AirPodsMotionService {
 
   static StreamSubscription<DeviceMotionData>? _subscription;
   static bool _isInitialized = false;
+  static DateTime? _lastDataTime;  // 最後にデータを受信した時刻
 
   /// サービスを初期化
   static void initialize() {
@@ -27,7 +28,10 @@ class AirPodsMotionService {
       debugPrint('AirPodsMotionService Error: $error');
     })
         .listen(
-          (data) => _motionSubject.add(data),
+          (data) {
+        _lastDataTime = DateTime.now();  // データ受信時刻を記録
+        _motionSubject.add(data);
+      },
       onError: (error) => _motionSubject.addError(error),
     );
 
@@ -39,20 +43,29 @@ class AirPodsMotionService {
     _subscription?.cancel();
     _motionSubject.close();
     _isInitialized = false;
+    _lastDataTime = null;
   }
 
-  /// AirPodsの接続状態を確認
+  /// AirPodsの接続状態を確認（改善版）
   static Future<bool> isConnected() async {
-    try {
-      // タイムアウトを設定して接続確認
-      final data = await motion$()
-          .where((data) => data != null)
-          .timeout(const Duration(seconds: 2))
-          .first;
-      return data != null;
-    } catch (e) {
-      return false;
+    if (!_isInitialized) initialize();
+
+    // 最後にデータを受信してから3秒以上経過していたら未接続と判断
+    if (_lastDataTime == null) {
+      // まだ一度もデータを受信していない場合は、短時間待って確認
+      try {
+        await motion$()
+            .where((data) => data != null)
+            .timeout(const Duration(seconds: 1))
+            .first;
+        return _lastDataTime != null;
+      } catch (e) {
+        return false;
+      }
     }
+
+    final timeSinceLastData = DateTime.now().difference(_lastDataTime!);
+    return timeSinceLastData.inSeconds < 3;
   }
 
   /// デバイスモーションデータのストリーム
