@@ -202,7 +202,7 @@ class PostureAnalyzer {
     // 姿勢判定
     double pitchDiff = 0;
     if (_baselinePitch != null) {
-      final pitchDiff = _baselinePitch! - medianPitch;
+      pitchDiff = _baselinePitch! - medianPitch;
     }
     final thresholdRad = thresholdDeg * (math.pi / 180);
     final isPoorPosture = pitchDiff > thresholdRad;
