@@ -15,6 +15,10 @@ class PostureAnalyzer {
 
   // Configurable parameters
   final int thresholdDeg;
+  final double yawMaxThreshold;
+  final double yawMinThreshold;
+  final double rollMaxThreshold;
+  final double rollMinThreshold;
   final Duration avgWindow;
   final Duration Function() getConfirmDuration;
   final Duration Function() getNotificationInterval;
@@ -33,6 +37,10 @@ class PostureAnalyzer {
   DateTime? _poorPostureStartTime;
   DateTime? _lastNotificationTime;
 
+  // Roll, Yaw parameters
+  double? _currentRoll;
+  double? _currentYaw;
+
   // Throttling
   final _throttleDuration = Duration(milliseconds: 1000 ~/ AppConstants.sensorSamplingRate);
   DateTime _lastProcessTime = DateTime.now();
@@ -41,11 +49,17 @@ class PostureAnalyzer {
   Stream<AppException> get error$ => _errorController.stream;
   PostureState get currentState => _stateController.value;
   double? get baselinePitch => _baselinePitch;
+  double? get currentRoll => _currentRoll;
+  double? get currentYaw => _currentYaw;
   bool get isMonitoring => _attitudeSubscription != null;
 
   PostureAnalyzer({
     this.thresholdDeg = AppConstants.postureThresholdDegrees,
     this.avgWindow = AppConstants.averageWindow,
+    this.yawMaxThreshold = AppConstants.yawMaxThreshold,
+    this.yawMinThreshold = AppConstants.yawMinThreshold,
+    this.rollMaxThreshold = AppConstants.rollMaxThreshold,
+    this.rollMinThreshold = AppConstants.rollMinThreshold,
     required this.getConfirmDuration,
     required this.getNotificationInterval,
   }) {
@@ -164,7 +178,12 @@ class PostureAnalyzer {
     _lastProcessTime = now;
 
     // バッファを更新
-    _pitchBuffer.add(attitude.pitch.toDouble());
+    if (attitude.yaw.toDouble() < yawMinThreshold || attitude.yaw.toDouble() > yawMaxThreshold || attitude.roll.toDouble() < rollMinThreshold || attitude.roll.toDouble() > rollMaxThreshold) {
+      _pitchBuffer.add(0);
+    }
+    else {
+      _pitchBuffer.add(attitude.pitch.toDouble());
+    }
     if (_pitchBuffer.length > _maxBufferSize) {
       _pitchBuffer.removeRange(0, _pitchBuffer.length - _maxBufferSize);
     }
@@ -172,15 +191,36 @@ class PostureAnalyzer {
     if (_pitchBuffer.isEmpty) return;
 
     // 移動平均を計算
-    final avgPitch = _pitchBuffer.reduce((a, b) => a + b) / _pitchBuffer.length;
+    //final avgPitch = _pitchBuffer.reduce((a, b) => a + b) / _pitchBuffer.length;
+
+    // Hampelフィルター処理
+    final window = List<double>.from(_pitchBuffer);
+    final median = _calculateMedian(window);
+    final deviations = window.map((v) => (v - median).abs()).toList();
+    final mad = _calculateMedian(deviations);
+    final threshold = 1.8 * 1.4826 * mad;
+    final filtered = window.map((v) => 
+      (v - median).abs() > threshold ? median : v).toList();
+    final medianPitch = _calculateMedian(filtered);
 
     // 姿勢判定
-    final pitchDiff = (_baselinePitch! - avgPitch);
+    final pitchDiff = (_baselinePitch! - medianPitch);
     final thresholdRad = thresholdDeg * (math.pi / 180);
     final isPoorPosture = pitchDiff > thresholdRad;
 
     // 状態更新とイベント発火
     _updatePostureState(isPoorPosture, now);
+  }
+
+  /// Helper: calculate median of a list
+  double _calculateMedian(List<double> values) {
+    final sorted = List<double>.from(values)..sort();
+    final n = sorted.length;
+    if (n % 2 == 1) {
+      return sorted[n ~/ 2];
+    } else {
+      return (sorted[n ~/ 2 - 1] + sorted[n ~/ 2]) / 2;
+    }
   }
 
   void _updatePostureState(bool isPoorPosture, DateTime now) {

@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 class AppConstants {
   // 姿勢検知の設定
   static const int postureThresholdDegrees = 8;
@@ -7,7 +9,7 @@ class AppConstants {
 
   // センサー設定
   static const int airPodsUpdateFrequency = 25; // Hz
-  static const int sensorSamplingRate = 15; // Hz (実際の処理頻度)
+  static const int sensorSamplingRate = 25; // Hz (実際の処理頻度)
 
   // UI設定
   static const Duration calibrationDuration = Duration(seconds: 3);
@@ -22,4 +24,10 @@ class AppConstants {
 
   // 接続確認設定
   static const Duration airPodsConnectionCheckInterval = Duration(seconds: 5); // 秒
+
+  // rollとyawの閾値
+  static const double yawMaxThreshold = 0.9;
+  static const double rollMaxThreshold = 0.75; 
+  static const double yawMinThreshold = -0.13;
+  static const double rollMinThreshold = -0.1;
 }
