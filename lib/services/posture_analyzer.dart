@@ -37,10 +37,6 @@ class PostureAnalyzer {
   DateTime? _poorPostureStartTime;
   DateTime? _lastNotificationTime;
 
-  // Roll, Yaw parameters
-  double? _currentRoll;
-  double? _currentYaw;
-
   // Throttling
   final _throttleDuration = Duration(milliseconds: 1000 ~/ AppConstants.sensorSamplingRate);
   DateTime _lastProcessTime = DateTime.now();
@@ -48,9 +44,7 @@ class PostureAnalyzer {
   Stream<PostureState> get state$ => _stateController.stream;
   Stream<AppException> get error$ => _errorController.stream;
   PostureState get currentState => _stateController.value;
-  double? get baselinePitch => _baselinePitch;
-  double? get currentRoll => _currentRoll;
-  double? get currentYaw => _currentYaw;
+  double? get baselinePitch => _baselinePitch; 
   bool get isMonitoring => _attitudeSubscription != null;
 
   PostureAnalyzer({
@@ -103,8 +97,8 @@ class PostureAnalyzer {
         throw CalibrationFailedException('センサーデータを取得できませんでした');
       }
 
-      // 平均値を計算
-      _baselinePitch = samples.reduce((a, b) => a + b) / samples.length;
+      // 中央値を計算
+      _baselinePitch = _calculateMedian(samples);
 
       // 保存
       await _storage.savePitch(_baselinePitch!);
@@ -197,14 +191,19 @@ class PostureAnalyzer {
     final window = List<double>.from(_pitchBuffer);
     final median = _calculateMedian(window);
     final deviations = window.map((v) => (v - median).abs()).toList();
+    // MedAD (Median Absolute Deviation)
     final mad = _calculateMedian(deviations);
+    // 1.8はwindow内の中央値から何倍離れているか（直感）、1.4826は標準偏差とのスケール調整
     final threshold = 1.8 * 1.4826 * mad;
     final filtered = window.map((v) => 
       (v - median).abs() > threshold ? median : v).toList();
     final medianPitch = _calculateMedian(filtered);
 
     // 姿勢判定
-    final pitchDiff = (_baselinePitch! - medianPitch);
+    double pitchDiff = 0;
+    if (_baselinePitch != null) {
+      final pitchDiff = _baselinePitch! - medianPitch;
+    }
     final thresholdRad = thresholdDeg * (math.pi / 180);
     final isPoorPosture = pitchDiff > thresholdRad;
 
