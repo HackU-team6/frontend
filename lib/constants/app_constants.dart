@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 class AppConstants {
   // 姿勢検知の設定
   static const int postureThresholdDegrees = 8;
