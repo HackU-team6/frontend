@@ -192,9 +192,9 @@ class PostureAnalyzer {
     final median = _calculateMedian(window);
     final deviations = window.map((v) => (v - median).abs()).toList();
     // MedAD (Median Absolute Deviation)
-    final mad = _calculateMedian(deviations);
+    final medad = _calculateMedian(deviations);
     // 1.8はwindow内の中央値から何倍離れているか（直感）、1.4826は標準偏差とのスケール調整
-    final threshold = 1.8 * 1.4826 * mad;
+    final threshold = 1.8 * 1.4826 * medad;
     final filtered = window.map((v) => 
       (v - median).abs() > threshold ? median : v).toList();
     final medianPitch = _calculateMedian(filtered);
