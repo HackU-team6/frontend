@@ -15,6 +15,10 @@ class PostureAnalyzer {
 
   // Configurable parameters
   final int thresholdDeg;
+  final double yawMaxThreshold;
+  final double yawMinThreshold;
+  final double rollMaxThreshold;
+  final double rollMinThreshold;
   final Duration avgWindow;
   final Duration Function() getConfirmDuration;
   final Duration Function() getNotificationInterval;
@@ -40,12 +44,16 @@ class PostureAnalyzer {
   Stream<PostureState> get state$ => _stateController.stream;
   Stream<AppException> get error$ => _errorController.stream;
   PostureState get currentState => _stateController.value;
-  double? get baselinePitch => _baselinePitch;
+  double? get baselinePitch => _baselinePitch; 
   bool get isMonitoring => _attitudeSubscription != null;
 
   PostureAnalyzer({
     this.thresholdDeg = AppConstants.postureThresholdDegrees,
     this.avgWindow = AppConstants.averageWindow,
+    this.yawMaxThreshold = AppConstants.yawMaxThreshold,
+    this.yawMinThreshold = AppConstants.yawMinThreshold,
+    this.rollMaxThreshold = AppConstants.rollMaxThreshold,
+    this.rollMinThreshold = AppConstants.rollMinThreshold,
     required this.getConfirmDuration,
     required this.getNotificationInterval,
   }) {
@@ -89,8 +97,8 @@ class PostureAnalyzer {
         throw CalibrationFailedException('センサーデータを取得できませんでした');
       }
 
-      // 平均値を計算
-      _baselinePitch = samples.reduce((a, b) => a + b) / samples.length;
+      // 中央値を計算
+      _baselinePitch = _calculateMedian(samples);
 
       // 保存
       await _storage.savePitch(_baselinePitch!);
@@ -164,7 +172,12 @@ class PostureAnalyzer {
     _lastProcessTime = now;
 
     // バッファを更新
-    _pitchBuffer.add(attitude.pitch.toDouble());
+    if (attitude.yaw.toDouble() < yawMinThreshold || attitude.yaw.toDouble() > yawMaxThreshold || attitude.roll.toDouble() < rollMinThreshold || attitude.roll.toDouble() > rollMaxThreshold) {
+      _pitchBuffer.add(0);
+    }
+    else {
+      _pitchBuffer.add(attitude.pitch.toDouble());
+    }
     if (_pitchBuffer.length > _maxBufferSize) {
       _pitchBuffer.removeRange(0, _pitchBuffer.length - _maxBufferSize);
     }
@@ -172,15 +185,41 @@ class PostureAnalyzer {
     if (_pitchBuffer.isEmpty) return;
 
     // 移動平均を計算
-    final avgPitch = _pitchBuffer.reduce((a, b) => a + b) / _pitchBuffer.length;
+    //final avgPitch = _pitchBuffer.reduce((a, b) => a + b) / _pitchBuffer.length;
+
+    // Hampelフィルター処理
+    final window = List<double>.from(_pitchBuffer);
+    final median = _calculateMedian(window);
+    final deviations = window.map((v) => (v - median).abs()).toList();
+    // MedAD (Median Absolute Deviation)
+    final medad = _calculateMedian(deviations);
+    // 1.8はwindow内の中央値から何倍離れているか（直感）、1.4826は標準偏差とのスケール調整
+    final threshold = 1.8 * 1.4826 * medad;
+    final filtered = window.map((v) => 
+      (v - median).abs() > threshold ? median : v).toList();
+    final medianPitch = _calculateMedian(filtered);
 
     // 姿勢判定
-    final pitchDiff = (_baselinePitch! - avgPitch);
+    double pitchDiff = 0;
+    if (_baselinePitch != null) {
+      pitchDiff = _baselinePitch! - medianPitch;
+    }
     final thresholdRad = thresholdDeg * (math.pi / 180);
     final isPoorPosture = pitchDiff > thresholdRad;
 
     // 状態更新とイベント発火
     _updatePostureState(isPoorPosture, now);
+  }
+
+  /// Helper: calculate median of a list
+  double _calculateMedian(List<double> values) {
+    final sorted = List<double>.from(values)..sort();
+    final n = sorted.length;
+    if (n % 2 == 1) {
+      return sorted[n ~/ 2];
+    } else {
+      return (sorted[n ~/ 2 - 1] + sorted[n ~/ 2]) / 2;
+    }
   }
 
   void _updatePostureState(bool isPoorPosture, DateTime now) {

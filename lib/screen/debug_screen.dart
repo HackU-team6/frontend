@@ -20,6 +20,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   StreamSubscription<Attitude>? _attitudeSubscription;
 
   double _currentPitch = 0.0;
+  double _currentYaw = 0.0;
+  double _currentRoll = 0.0;
   double? _baselinePitch;
   double _pitchDifference = 0.0;
   DateTime? _poorPostureSince;
@@ -45,6 +47,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     _attitudeSubscription = AirPodsMotionService.attitude$().listen((attitude) {
       setState(() {
         _currentPitch = attitude.pitch.toDouble();
+        _currentRoll = attitude.roll.toDouble();
+        _currentYaw = attitude.yaw.toDouble();
 
         // ベースラインピッチを取得
         final analyzer = ref.read(postureMonitoringProvider.notifier);
@@ -123,6 +127,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               _StatusCard(
                 monitoringState: monitoringState,
                 currentPitch: _currentPitch,
+                currentRoll: _currentRoll,
+                currentYaw: _currentYaw,
                 baselinePitch: _baselinePitch,
                 pitchDifference: _pitchDifference,
                 poorPostureSince: _poorPostureSince,
@@ -169,6 +175,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                       child: _VisualizationCard(
                         baselinePitch: _baselinePitch,
                         currentPitch: _currentPitch,
+                        currentRoll: _currentRoll,
+                        currentYaw: _currentYaw,
                         thresholdRad: AppConstants.postureThresholdDegrees * math.pi / 180,
                       ),
                     ),
@@ -194,6 +202,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 class _StatusCard extends StatelessWidget {
   final PostureMonitoringState monitoringState;
   final double currentPitch;
+  final double currentRoll;
+  final double currentYaw;
   final double? baselinePitch;
   final double pitchDifference;
   final DateTime? poorPostureSince;
@@ -204,6 +214,8 @@ class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.monitoringState,
     required this.currentPitch,
+    required this.currentRoll,
+    required this.currentYaw,
     required this.baselinePitch,
     required this.pitchDifference,
     required this.poorPostureSince,
@@ -237,6 +249,16 @@ class _StatusCard extends StatelessWidget {
             _StatusRow(
               label: '現在のピッチ値',
               value: '${currentPitch.toStringAsFixed(4)} rad',
+            ),
+            const SizedBox(height: 8),
+            _StatusRow(
+              label: '現在のヨー値',
+              value: '${currentYaw.toStringAsFixed(4)} rad',
+            ),
+            const SizedBox(height: 8),
+            _StatusRow(
+              label: '現在のロール値',
+              value: '${currentRoll.toStringAsFixed(4)} rad',
             ),
             const SizedBox(height: 8),
             _StatusRow(
@@ -364,11 +386,15 @@ class _ControlButtons extends StatelessWidget {
 class _VisualizationCard extends StatelessWidget {
   final double? baselinePitch;
   final double currentPitch;
+  final double currentRoll;
+  final double currentYaw;
   final double thresholdRad;
 
   const _VisualizationCard({
     required this.baselinePitch,
     required this.currentPitch,
+    required this.currentRoll,
+    required this.currentYaw,
     required this.thresholdRad,
   });
 
@@ -404,6 +430,8 @@ class _VisualizationCard extends StatelessWidget {
                   size: const Size(200, 200),
                   painter: PostureVisualizationPainter(
                     currentPitch: currentPitch,
+                    currentRoll: currentRoll,
+                    currentYaw: currentYaw,
                     baselinePitch: baselinePitch,
                     thresholdRad: thresholdRad,
                   ),
@@ -465,11 +493,15 @@ class _EventLogCard extends StatelessWidget {
 
 class PostureVisualizationPainter extends CustomPainter {
   final double currentPitch;
+  final double currentRoll;
+  final double currentYaw;
   final double? baselinePitch;
   final double thresholdRad;
 
   PostureVisualizationPainter({
     required this.currentPitch,
+    required this.currentRoll,
+    required this.currentYaw,
     this.baselinePitch,
     required this.thresholdRad,
   });
